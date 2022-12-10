@@ -1,0 +1,42 @@
+{
+  "name": "starfx",
+  "version": "0.0.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "author": "Eric Bower <me@erock.io>",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "format.pretty": "rome format . --write",
+    "format.lint": "rome check . --apply-suggested",
+    "format": "yarn format.pretty && yarn format.lint",
+    "lint.check": "rome ci .",
+    "lint.types": "tsc --noEmit",
+    "lint": "yarn lint.types && yarn lint.check",
+    "test": "yarn lint && ava"
+  },
+  "devDependencies": {
+    "@ava/typescript": "^3.0.1",
+    "@tsconfig/node-lts-strictest-esm": "^18.12.1",
+    "@types/node": "^18.11.9",
+    "@types/uuid": "^8.3.4",
+    "@types/wtfnode": "^0.7.0",
+    "ava": "^5.1.0",
+    "rome": "^10.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.3",
+    "wtfnode": "^0.9.1"
+  },
+  "ava": {
+    "typescript": {
+      "rewritePaths": {
+				"src/": "dist/"
+			},
+			"compile": "tsc"
+    }
+  },
+  "dependencies": {
+    "uuid": "^9.0.0"
+  }
+}
