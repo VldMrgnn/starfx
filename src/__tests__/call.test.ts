@@ -1,5 +1,6 @@
 import test from "ava";
-import { run, call, put, stdChannel, createRuntime } from "./index.js";
+import { run, call, put, stdChannel, createRuntime } from "../index.js";
+import "trace-unhandled/register.js";
 
 test("handles call effects and resume with the resolved values", async (t) => {
   const actual: any[] = [];
@@ -45,7 +46,7 @@ test("handles call effects and resume with the resolved values", async (t) => {
     actual.push(yield* call(identity, eight));
   }
 
-  await run(genFn).toPromise();
+  await run(genFn);
   const expected = [1, 2, 3, 4, 5, 6, 7, eight];
   t.deepEqual(actual, expected);
 });
@@ -79,7 +80,7 @@ test("handles call effects and throw the rejected values inside the generator", 
     }
   }
 
-  await runtime(genFnParent).toPromise();
+  await runtime(genFnParent);
   const expected = ["start", "failure"];
   t.deepEqual(actual, expected);
 });
@@ -128,7 +129,7 @@ test("handles call's synchronous failures and throws in the calling generator (1
     }
   }
 
-  await runtime(genFnParent).toPromise();
+  await runtime(genFnParent);
   const expected = [
     "start parent",
     "startChild",
@@ -153,7 +154,7 @@ test("handles call's synchronous failures and throws in the calling generator (2
   function* genFnChild() {
     try {
       yield put({
-        type: "startChild",
+        type: "start child",
       });
       yield call(fail, "child error");
       yield put({
@@ -183,10 +184,11 @@ test("handles call's synchronous failures and throws in the calling generator (2
     }
   }
 
-  await runtime(genFnParent).toPromise();
+  await runtime(genFnParent);
+
   const expected = [
     "start parent",
-    "startChild",
+    "start child",
     "failure child",
     "failure parent",
   ];

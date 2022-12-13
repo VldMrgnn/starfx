@@ -1,6 +1,7 @@
 import test from "ava";
-import { run, cancel, delay, fork, symbols } from "./index.js";
-import type { TaskItem } from "./index.js";
+import { run, cancel, delay, fork, symbols } from "../index.js";
+import type { Task } from "../index.js";
+// import "trace-unhandled/register.js";
 
 test("native promise handling", async (t) => {
   const actual: any[] = [];
@@ -14,7 +15,7 @@ test("native promise handling", async (t) => {
     }
   }
 
-  await run(genFn).toPromise();
+  await run(genFn);
   const expected = [1, "caught error"];
   t.deepEqual(actual, expected);
 });
@@ -30,24 +31,24 @@ test("native promise handling: undefined errors", async (t) => {
     }
   }
 
-  await run(genFn).toPromise();
+  await run(genFn);
   const expected = ["caught undefined"];
   t.deepEqual(actual, expected);
 });
 
-test("calling toPromise() of an already completed task", async (t) => {
+test("awaiting an already completed task", async (t) => {
   const result = "result-of-saga";
 
   const task = run(function* saga() {
     return result;
   });
 
-  t.false(task.isRunning());
-  const actual = await task.toPromise();
+  t.false(task.status() === "running");
+  const actual = await task;
   t.deepEqual(actual, result);
 });
 
-test("calling toPromise() before a task completes", async (t) => {
+test("awaiting before a task completes", async (t) => {
   const result = "result-of-saga";
 
   const task = run(function* saga() {
@@ -55,12 +56,12 @@ test("calling toPromise() before a task completes", async (t) => {
     return result;
   });
 
-  t.true(task.isRunning());
-  const actual = await task.toPromise();
+  t.true(task.status() === "running");
+  const actual = await task;
   t.deepEqual(actual, result);
 });
 
-test("calling toPromise() before a task aborts", async (t) => {
+test("awaiting before a task aborts", async (t) => {
   const error = new Error("test-error");
 
   const task = run(function* saga() {
@@ -68,36 +69,37 @@ test("calling toPromise() before a task aborts", async (t) => {
     throw error;
   });
 
-  t.true(task.isRunning());
+  t.true(task.status() === "running");
   try {
-    await task.toPromise();
+    await task;
   } catch (err) {
     t.deepEqual(err, error);
   }
 });
 
-test("calling toPromise() of an already cancelled task", async (t) => {
-  let child: TaskItem | null = null;
+test("awaiting an already cancelled task", async (t) => {
+  let child: Task | null = null;
 
   run(function* (): Generator {
-    child = yield* fork(function* child() {
-      yield delay(10000);
+    child = yield* fork(function* () {
+      yield* delay(2000);
     });
-    yield cancel(child);
+    yield* cancel(child);
   });
 
   if (!child) {
     t.fail();
     return;
   }
-  child = child as TaskItem;
-  t.false(child.isRunning());
-  const actual = await child.toPromise();
+  child = child as Task;
+  t.false(child.status() === "running");
+  // TODO: fix types?
+  const actual: any = await child;
   t.deepEqual(actual, symbols.cancel);
 });
 
-test("calling toPromise() of before a task gets cancelled", async (t) => {
-  let child: TaskItem | null = null;
+test("awaiting before a task gets cancelled", async (t) => {
+  let child: Task | null = null;
 
   run(function* (): Generator {
     child = yield* fork(function* child() {
@@ -111,8 +113,9 @@ test("calling toPromise() of before a task gets cancelled", async (t) => {
     t.fail();
     return;
   }
-  child = child as TaskItem;
-  t.true(child.isRunning());
-  const actual = await child.toPromise();
+  child = child as Task;
+  t.true(child.status() === "running");
+  // TODO: fix types?
+  const actual: any = await child;
   t.deepEqual(actual, symbols.cancel);
 });

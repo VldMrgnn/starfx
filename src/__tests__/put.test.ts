@@ -10,7 +10,7 @@ import {
   deferred,
   symbols,
   delayP,
-} from "./index.js";
+} from "../index.js";
 
 test("handling", async (t) => {
   let actual: any[] = [];
@@ -29,7 +29,7 @@ test("handling", async (t) => {
   }
 
   const runtime = createRuntime({ channel });
-  await runtime(genFn, "arg").toPromise();
+  await runtime(genFn, "arg");
   unsub();
   const expected = ["arg", "2"];
   t.deepEqual(actual, expected);
@@ -59,7 +59,7 @@ test("nested puts handling", async (t) => {
   }
 
   const expected = ["put a", "put b"];
-  await run(root).toPromise();
+  await run(root);
   t.deepEqual(actual, expected);
 });
 
@@ -80,7 +80,7 @@ test("puts emitted while dispatching saga need not to cause stack overflow", asy
   };
 
   const run = createRuntime({ channel });
-  await run(root).toPromise();
+  await run(root);
   t.pass();
 });
 
@@ -118,7 +118,7 @@ test("puts emitted directly after creating a task (caused by another put) should
   });
 
   const expected = ["didn't get missed"];
-  await task.toPromise();
+  await task;
   unsub();
   t.deepEqual(actual, expected);
 });
@@ -144,7 +144,7 @@ test("END should reach tasks created", async (t) => {
     while (true) {
       yield* take("START");
       actual.push("start taken");
-      yield def.promise;
+      yield def;
       actual.push("non-take effect resolved");
       yield* fork(subTask);
       actual.push("subTask forked");
@@ -183,6 +183,6 @@ test("END should reach tasks created", async (t) => {
     "subTask forked",
   ];
 
-  await task.toPromise();
+  await task;
   t.deepEqual(actual, expected);
 });

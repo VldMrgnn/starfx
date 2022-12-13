@@ -1,5 +1,12 @@
 import test from "ava";
-import { deferred, race, take, symbols, createRuntime } from "./index.js";
+import {
+  deferred,
+  race,
+  take,
+  symbols,
+  createRuntime,
+  delayP,
+} from "../index.js";
 
 test("race between effects handling", async (t) => {
   let resultOfRace: any = "initial";
@@ -8,26 +15,24 @@ test("race between effects handling", async (t) => {
   function* genFn() {
     resultOfRace = yield* race({
       event: take("action"),
-      timeout: timeout.promise,
+      timeout: timeout,
     });
   }
 
   const task = createRuntime()(genFn);
-  const expected = {
-    timeout: 1,
-  };
+  const expected = [1];
 
   await Promise.resolve();
 
   timeout.resolve(1);
 
-  await Promise.resolve();
+  await delayP(0);
 
   task.channel.put({
     type: "action",
   });
 
-  await task.toPromise();
+  await task;
 
   t.deepEqual(resultOfRace, expected, "must fulfill race between effects");
 });
@@ -37,7 +42,7 @@ test("race between array of effects handling", async (t) => {
   const timeout = deferred();
 
   function* genFn() {
-    const result = yield* race([take("action-2"), timeout.promise]);
+    const result = yield* race([take("action-2"), timeout]);
     actual.push(result);
   }
 
@@ -47,15 +52,15 @@ test("race between array of effects handling", async (t) => {
 
   timeout.resolve(2);
 
-  await Promise.resolve();
+  await delayP(0);
 
   task.channel.put({
     type: "action-2",
   });
 
-  await task.toPromise();
+  await task;
 
-  const expected = [[undefined, 2]];
+  const expected = [[2]];
   t.deepEqual(actual, expected, "must fulfill race between array of effects");
 });
 
@@ -66,10 +71,7 @@ test("race between effects: handle END", async (t) => {
 
   function* genFn() {
     called = true;
-    resultOfRace = yield* race({
-      event: take("action-3"),
-      task: timeout.promise,
-    });
+    resultOfRace = yield* race([take("action-3"), timeout]);
   }
 
   const task = createRuntime()(genFn);
@@ -80,8 +82,8 @@ test("race between effects: handle END", async (t) => {
 
   timeout.resolve(1);
 
-  await task.toPromise();
+  await task;
 
   t.true(called, "must end race effect if one of the effects resolve with END");
-  t.deepEqual(resultOfRace, { event: undefined });
+  t.deepEqual(resultOfRace, [undefined]);
 });

@@ -1,5 +1,5 @@
 import test from "ava";
-import { run, call, put, stdChannel, createRuntime } from "./index.js";
+import { run, call, put, stdChannel, createRuntime } from "../index.js";
 
 const last = (arr: any[]) => arr[arr.length - 1];
 
@@ -21,7 +21,7 @@ test("iterates through generators and returns value", async (t) => {
     t.deepEqual(value, 1);
   }
 
-  await run(fx).toPromise();
+  await run(fx);
   t.pass();
 });
 
@@ -31,7 +31,8 @@ test("when there's an error", async (t) => {
   }
 
   try {
-    await run(fx).toPromise();
+    await run(fx);
+    t.fail();
   } catch (err: any) {
     t.deepEqual("something happened", err.message);
   }
@@ -48,11 +49,11 @@ test("runtime iteration", async (t) => {
 
   const task = run(genFn);
   const isPromise = (f: any) => f && typeof f.then === "function";
-  t.true(isPromise(task.toPromise()), "must return promise");
+  t.true(isPromise(task), "must return promise");
 
-  const res = await task.toPromise();
+  const res = await task;
   t.false(
-    task.isRunning(),
+    task.status() === "running",
     "returned promise should resolve with the iterator return value",
   );
   t.deepEqual(res, 3, "should collect yielded values from the iterator");
@@ -76,7 +77,7 @@ test("output handling", async (t) => {
     });
   }
 
-  await runtime(genFn, "arg").toPromise();
+  await runtime(genFn, "arg");
   const expected = ["arg", "2"];
   t.deepEqual(actual, expected, "must handle generator output");
 });
@@ -93,9 +94,40 @@ test("yielded falsy values", async (t) => {
     actual.push(yield NaN);
   }
 
-  await run(genFn).toPromise();
+  await run(genFn);
 
   const expected = [false, undefined, null, "", 0, NaN];
   t.true(isNaN(last(actual)), "must inject back yielded falsy values");
   t.deepEqual(dropRight(1, actual), dropRight(1, expected));
+});
+
+test.only("yield call inside large for-loop", async (t) => {
+  t.plan(1);
+  t.timeout(3000);
+
+  function* singlet(v: number) {
+    yield v;
+  }
+
+  function* gen() {
+    for (let i = 0; i < 2000; i += 1) {
+      yield call(singlet, i);
+    }
+  }
+
+  try {
+    await run(gen);
+  } catch (err) {
+    if (!err) {
+      t.fail();
+      return;
+    }
+
+    if (!(err instanceof Error)) {
+      t.fail();
+      return;
+    }
+
+    t.regex(err.message, /Maximum call stack size exceeded/);
+  }
 });

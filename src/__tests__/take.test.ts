@@ -1,5 +1,5 @@
 import test from "ava";
-import { Action, run, symbols, take } from "./index.js";
+import { Action, run, symbols, take } from "../index.js";
 
 test("take from default channel", async (t) => {
   const typeSymbol = Symbol("action-symbol");
@@ -123,6 +123,6 @@ test("take from default channel", async (t) => {
     "auto ended",
   ];
 
-  await task.toPromise();
+  await task;
   t.deepEqual(actual, expected);
 });

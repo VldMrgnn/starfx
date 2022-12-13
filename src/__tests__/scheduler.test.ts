@@ -1,4 +1,4 @@
-import { createScheduler } from "./index.js";
+import { createScheduler } from "../scheduler.js";
 import test from "ava";
 
 test("scheduler() - executes all recursively triggered tasks in order", (t) => {

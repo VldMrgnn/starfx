@@ -1,5 +1,5 @@
 import test from "ava";
-import { deferred, createRuntime, stdChannel, take, delayP } from "./index.js";
+import { deferred, createRuntime, stdChannel, take, delayP } from "../index.js";
 
 test("nested iterator handling", async (t) => {
   const actual: any[] = [];
@@ -8,11 +8,11 @@ test("nested iterator handling", async (t) => {
   const runtime = createRuntime({ channel });
 
   function* child(): Generator {
-    actual.push(yield defs[0]?.promise);
+    actual.push(yield defs[0]);
     actual.push(yield* take("action-1"));
-    actual.push(yield defs[1]?.promise);
+    actual.push(yield defs[1]);
     actual.push(yield* take("action-2"));
-    actual.push(yield defs[2]?.promise);
+    actual.push(yield defs[2]);
     actual.push(yield* take("action-3"));
     actual.push(yield Promise.reject("child error"));
   }
@@ -48,7 +48,7 @@ test("nested iterator handling", async (t) => {
     type: "action-3",
   });
 
-  await task.toPromise();
+  await task;
 
   const expected = [
     1,
