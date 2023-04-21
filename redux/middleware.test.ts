@@ -1,8 +1,8 @@
 import { describe, expect, it } from "../test.ts";
-
 import { call } from "../mod.ts";
-import { createFxMiddleware, select } from "../redux.ts";
 import { Action } from "../types.ts";
+
+import { createFxMiddleware, select } from "./mod.ts";
 
 const tests = describe("createMiddleware()");
 

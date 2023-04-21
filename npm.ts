@@ -6,7 +6,7 @@ const version = Deno.env.get("NPM_VERSION");
 assert(version, "NPM_VERSION is required to build npm package");
 
 await build({
-  entryPoints: ["./mod.ts", "./react.ts", "./redux.ts"],
+  entryPoints: ["./mod.ts", "./react.ts", "./redux.ts", "./query/mod.ts"],
   outDir: "./npm",
   shims: {
     deno: false,
@@ -18,10 +18,9 @@ await build({
     sourceMap: true,
   },
   package: {
-    // package.json properties
     name: "starfx",
     version,
-    description: "Declarative side-effects for your apps",
+    description: "",
     license: "MIT",
     repository: {
       author: "me@erock.io",
@@ -32,8 +31,9 @@ await build({
       url: "https://github.com/neurosnap/starfx/issues",
     },
     engines: {
-      node: ">= 14",
+      node: ">= 18",
     },
+    sideEffects: false,
   },
 });
 
