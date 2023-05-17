@@ -1,4 +1,4 @@
-import { build, emptyDir, assert } from "./test.ts";
+import { assert, build, emptyDir } from "./test.ts";
 
 await emptyDir("./npm");
 
