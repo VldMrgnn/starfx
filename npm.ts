@@ -1,12 +1,12 @@
-import { build, emptyDir } from "https://deno.land/x/dnt@0.17.0/mod.ts";
-import { assert } from "https://deno.land/std@0.129.0/testing/asserts.ts";
+import { build, emptyDir, assert } from "./test.ts";
+
 await emptyDir("./npm");
 
 const version = Deno.env.get("NPM_VERSION");
 assert(version, "NPM_VERSION is required to build npm package");
 
 await build({
-  entryPoints: ["./mod.ts", "./react.ts", "./redux.ts", "./query/mod.ts"],
+  entryPoints: ["./mod.ts", "./react.ts", "./redux/mod.ts", "./query/mod.ts"],
   outDir: "./npm",
   shims: {
     deno: false,
@@ -34,6 +34,10 @@ await build({
       node: ">= 18",
     },
     sideEffects: false,
+  },
+  postBuild() {
+    Deno.copyFileSync("LICENSE", "npm/LICENSE");
+    Deno.copyFileSync("README.md", "npm/README.md");
   },
 });
 

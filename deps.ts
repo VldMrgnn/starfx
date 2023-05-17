@@ -47,13 +47,13 @@ export {
   BATCH,
   batchActions,
   enableBatching,
-} from "npm:redux-batched-actions@0.5.0";
+} from "https://esm.sh/redux-batched-actions@0.5.0";
 export type {
   LoadingItemState,
   LoadingMapPayload,
   LoadingState,
   MapEntity,
-} from "npm:robodux@15.0.0";
+} from "https://esm.sh/robodux@15.0.0";
 export {
   createAction,
   createAssign,
@@ -62,4 +62,4 @@ export {
   createTable,
   defaultLoader,
   defaultLoadingItem,
-} from "npm:robodux@15.0.0";
+} from "https://esm.sh/robodux@15.0.0";

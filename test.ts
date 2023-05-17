@@ -1,3 +1,5 @@
+export { build, emptyDir } from "https://deno.land/x/dnt@0.35.0/mod.ts";
+export { assert } from "https://deno.land/std@0.187.0/testing/asserts.ts";
 export { describe, it } from "https://deno.land/std@0.163.0/testing/bdd.ts";
 export * as asserts from "https://deno.land/std@0.185.0/testing/asserts.ts";
 export { expect } from "https://deno.land/x/expect@v0.3.0/mod.ts";

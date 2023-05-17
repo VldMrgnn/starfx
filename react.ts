@@ -3,7 +3,7 @@ const { createContext, createElement: h, useContext } = React;
 
 import type { Operation, Scope } from "./deps.ts";
 import type { Action } from "./types.ts";
-import { ActionContext } from "./redux.ts";
+import { ActionContext } from "./redux/mod.ts";
 
 const ScopeContext = createContext<Scope | null>(null);
 

@@ -1,7 +1,7 @@
 {
   "tasks": {
     "types": "deno run --allow-write ./api-type-template.ts",
-    "npm": "deno run --allow-write ./npm.ts"
+    "npm": "deno run --allow-write --allow-read --allow-env --allow-run ./npm.ts"
   },
   "lint": {
     "exclude": ["npm/", "examples/"],
