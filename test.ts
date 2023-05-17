@@ -8,7 +8,7 @@ export {
   fireEvent,
   render,
   screen,
-} from "npm:@testing-library/react@14.0.0";
+} from "https://esm.sh/@testing-library/react@14.0.0";
 export {
   install,
   mock,
