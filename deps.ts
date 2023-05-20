@@ -5,6 +5,7 @@ export type {
   Result,
   Scope,
   Stream,
+  Subscription,
   Task,
 } from "https://deno.land/x/effection@3.0.0-alpha.7/mod.ts";
 export {
@@ -53,7 +54,7 @@ export type {
   LoadingMapPayload,
   LoadingState,
   MapEntity,
-} from "https://esm.sh/robodux@15.0.0?pin=v121";
+} from "npm:robodux@15.0.0";
 export {
   createAction,
   createAssign,
@@ -62,4 +63,4 @@ export {
   createTable,
   defaultLoader,
   defaultLoadingItem,
-} from "https://esm.sh/robodux@15.0.0?pin=v121";
+} from "npm:robodux@15.0.0";

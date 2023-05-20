@@ -15,8 +15,8 @@ export {
   mockedFetch,
 } from "https://deno.land/x/mock_fetch@0.3.0/mod.ts";
 
-import { contextualize } from "./context.ts";
 import { configureStore, createScope } from "./deps.ts";
+import { reduxContext } from "./redux/mod.ts";
 
 export function isLikeSelector(selector: unknown) {
   return (
@@ -62,7 +62,7 @@ export function setupReduxScope() {
     reducer: () => null,
   });
   scope.run(function* () {
-    yield* contextualize("redux:store", store);
+    yield* reduxContext(store);
   });
   return scope;
 }

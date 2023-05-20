@@ -1,6 +1,13 @@
-import { BATCH, Channel, Instruction, Operation, Scope } from "../deps.ts";
+import {
+  BATCH,
+  Channel,
+  Instruction,
+  Operation,
+  Scope,
+  Subscription,
+} from "../deps.ts";
 import type { Action, ActionWPayload, OpFn, StoreLike } from "../types.ts";
-import type { ActionPattern } from "../matcher.ts";
+import { ActionPattern, matcher } from "../matcher.ts";
 
 import {
   configureStore,
@@ -11,13 +18,14 @@ import {
 } from "../deps.ts";
 import { contextualize } from "../context.ts";
 import { call, cancel, emit, parallel } from "../fx/mod.ts";
-import { once } from "../iter.ts";
 
 export const ActionContext = createContext<Channel<Action, void>>(
   "redux:action",
   createChannel<Action, void>(),
 );
-
+export const TakeContext = createContext<Subscription<Action, void>>(
+  "redux:action:take",
+);
 export const StoreContext = createContext<StoreLike>("redux:store");
 
 export function* select<S, R>(selectorFn: (s: S) => R) {
@@ -26,18 +34,25 @@ export function* select<S, R>(selectorFn: (s: S) => R) {
 }
 
 // https://github.com/microsoft/TypeScript/issues/31751#issuecomment-498526919
-export function* take<P = never>(
+export function take<P>(
   pattern: ActionPattern,
 ): Generator<
   Instruction,
-  [P] extends [never] ? Action : ActionWPayload<P>,
-  any
-> {
-  const action = yield* once({
-    channel: ActionContext,
-    pattern,
-  });
-  return action as any;
+  ActionWPayload<P>,
+  unknown
+>;
+export function* take(pattern: ActionPattern) {
+  console.log('PATT', pattern);
+  const subscription = yield* TakeContext;
+  let next = yield* subscription;
+  while (!next.done) {
+    console.log(next.value, pattern);
+    const match = matcher(pattern);
+    if (match(next.value)) {
+      return next.value;
+    }
+    next = yield* subscription;
+  }
 }
 
 export function* takeEvery<T>(
@@ -48,6 +63,7 @@ export function* takeEvery<T>(
     while (true) {
       const action = yield* take(pattern);
       if (!action) continue;
+      console.log(action);
       yield* spawn(() => op(action));
     }
   });
@@ -75,10 +91,19 @@ export function* takeLeading<T>(
   op: (action: Action) => Operation<T>,
 ) {
   return yield* spawn(function* () {
+    let active = false;
+
     while (true) {
       const action = yield* take(pattern);
       if (!action) continue;
-      yield* call(() => op(action));
+      if (active) continue;
+
+      try {
+        active = true;
+        yield* call(() => op(action));
+      } finally {
+        active = false;
+      }
     }
   });
 }
@@ -118,6 +143,14 @@ function* send(action: Action) {
   }
 }
 
+export function* reduxContext<S>(store: StoreLike<S>) {
+  yield* contextualize("redux:store", store);
+  const actionChannel = yield* ActionContext;
+  const { output } = actionChannel;
+  const subscription = yield* output;
+  yield* contextualize("redux:action:take", subscription);
+}
+
 export function createFxMiddleware(scope: Scope = createScope()) {
   function run<T>(op: OpFn<T>) {
     const task = scope.run(function* runner() {
@@ -129,7 +162,7 @@ export function createFxMiddleware(scope: Scope = createScope()) {
 
   function middleware<S = unknown, T = unknown>(store: StoreLike<S>) {
     scope.run(function* () {
-      yield* contextualize("redux:store", store);
+      yield* reduxContext(store);
     });
 
     return (next: (a: Action) => T) => (action: Action) => {

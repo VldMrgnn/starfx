@@ -654,7 +654,8 @@
   },
   "npm": {
     "specifiers": {
-      "@testing-library/react@14.0.0": "@testing-library/react@14.0.0_react@18.2.0_react-dom@18.2.0__react@18.2.0"
+      "@testing-library/react@14.0.0": "@testing-library/react@14.0.0_react@18.2.0_react-dom@18.2.0__react@18.2.0",
+      "robodux@15.0.0": "robodux@15.0.0"
     },
     "packages": {
       "@babel/code-frame@7.21.4": {
@@ -927,6 +928,10 @@
           "function-bind": "function-bind@1.1.1"
         }
       },
+      "immer@9.0.21": {
+        "integrity": "sha512-bc4NBHqOqSfRW7POMkHd51LvClaeMXpm8dx0e8oE2GORbq5aRK7Bxl4FyzVLdGtLmvLKL7BTDBG5ACQm4HWjTA==",
+        "dependencies": {}
+      },
       "internal-slot@1.0.5": {
         "integrity": "sha512-Y+R5hJrzs52QCG2laLn4udYVnxsfny9CpOhNhUvk/SSSVyF6T27FzRbF0sroPidSu3X8oEAkOn2K804mjpt6UQ==",
         "dependencies": {
@@ -1111,6 +1116,17 @@
           "call-bind": "call-bind@1.0.2",
           "define-properties": "define-properties@1.2.0",
           "functions-have-names": "functions-have-names@1.2.3"
+        }
+      },
+      "reselect@4.1.8": {
+        "integrity": "sha512-ab9EmR80F/zQTMNeneUr4cv+jSwPJgIlvEmVwLerwrWVbpLlBuls9XHzIeTFy4cegU2NHBp3va0LKOzU5qFEYQ==",
+        "dependencies": {}
+      },
+      "robodux@15.0.0": {
+        "integrity": "sha512-cc+UV73PbmWUwptb06R660CNq3sZdhtCf7F9IW+gr4Oo4rAgw+pY1p1wKQw0Akvpla7eiXOoD0c353xeJWWndw==",
+        "dependencies": {
+          "immer": "immer@9.0.21",
+          "reselect": "reselect@4.1.8"
         }
       },
       "scheduler@0.23.0": {

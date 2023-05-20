@@ -10,17 +10,19 @@ it(testEvery, "should work", async () => {
   const loop = 10;
   const actual: string[][] = [];
 
+  function* worker(arg1: string, arg2: string, action: Action) {
+    actual.push([arg1, arg2, action.payload]);
+  }
+
   function* root() {
     const task = yield* takeEvery(
       "ACTION",
       (action) => worker("a1", "a2", action),
     );
     yield* take("CANCEL_WATCHER");
+    console.log('took');
     yield* cancel(task);
-  }
-
-  function* worker(arg1: string, arg2: string, action: Action) {
-    actual.push([arg1, arg2, action.payload]);
+    yield* task;
   }
 
   const { store, fx } = setupStore({ reducer: (s) => s });
