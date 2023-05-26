@@ -1,6 +1,6 @@
 import { call, race } from "../fx/mod.ts";
-import { put, select, take } from "../redux/mod.ts";
-import { batchActions, sleep } from "../deps.ts";
+import { put, select, take } from "../store/mod.ts";
+import { sleep } from "../deps.ts";
 import { compose } from "../compose.ts";
 import type { OpFn } from "../types.ts";
 
@@ -16,12 +16,14 @@ import type {
 import { createAction, isObject, mergeRequest } from "./util.ts";
 import {
   addData,
+  QueryState,
   resetLoaderById,
   selectDataById,
   setLoaderError,
   setLoaderStart,
   setLoaderSuccess,
 } from "./slice.ts";
+import { updateStore } from "../store/fx.ts";
 
 /**
  * This middleware will catch any errors in the pipeline
@@ -115,7 +117,7 @@ export function* dispatchActions(ctx: { actions: Action[] }, next: Next) {
   if (!ctx.actions) ctx.actions = [];
   yield* next();
   if (ctx.actions.length === 0) return;
-  yield* put(batchActions(ctx.actions));
+  yield* put(ctx.actions);
 }
 
 /**
@@ -126,24 +128,21 @@ export function* loadingMonitorSimple<Ctx extends LoaderCtx = LoaderCtx>(
   ctx: Ctx,
   next: Next,
 ) {
-  yield* put(
-    batchActions([
-      setLoaderStart({ id: ctx.name }),
-      setLoaderStart({ id: ctx.key }),
-    ]),
-  );
+  yield* updateStore([
+    setLoaderStart({ id: ctx.name }),
+    setLoaderStart({ id: ctx.key }),
+  ]);
+
   if (!ctx.loader) {
     ctx.loader = {};
   }
 
   yield* next();
 
-  yield* put(
-    batchActions([
-      setLoaderSuccess({ ...ctx.loader, id: ctx.name }),
-      setLoaderSuccess({ ...ctx.loader, id: ctx.key }),
-    ]),
-  );
+  yield* updateStore([
+    setLoaderSuccess({ ...ctx.loader, id: ctx.name }),
+    setLoaderSuccess({ ...ctx.loader, id: ctx.key }),
+  ]);
 }
 
 /**
@@ -153,34 +152,38 @@ export function loadingMonitor<Ctx extends ApiCtx = ApiCtx>(
   errorFn: (ctx: Ctx) => string = (ctx) => ctx.json?.data?.message || "",
 ) {
   return function* trackLoading(ctx: Ctx, next: Next) {
-    yield* put(
-      batchActions([
-        setLoaderStart({ id: ctx.name }),
-        setLoaderStart({ id: ctx.key }),
-      ]),
-    );
+    yield* updateStore([
+      setLoaderStart({ id: ctx.name }),
+      setLoaderStart({ id: ctx.key }),
+    ]);
     if (!ctx.loader) ctx.loader = {} as any;
 
     yield* next();
 
     if (!ctx.response) {
-      ctx.actions.push(resetLoaderById(ctx.name), resetLoaderById(ctx.key));
+      yield* updateStore([
+        resetLoaderById({ id: ctx.name }),
+        resetLoaderById({ id: ctx.key }),
+      ]);
       return;
     }
 
-    const payload = ctx.loader || {};
+    if (!ctx.loader) {
+      ctx.loader || {};
+    }
+
     if (!ctx.response.ok) {
-      ctx.actions.push(
-        setLoaderError({ id: ctx.name, message: errorFn(ctx), ...payload }),
-        setLoaderError({ id: ctx.key, message: errorFn(ctx), ...payload }),
-      );
+      yield* updateStore([
+        setLoaderError({ id: ctx.name, message: errorFn(ctx), ...ctx.loader }),
+        setLoaderError({ id: ctx.key, message: errorFn(ctx), ...ctx.loader }),
+      ]);
       return;
     }
 
-    ctx.actions.push(
-      setLoaderSuccess({ id: ctx.name, ...payload }),
-      setLoaderSuccess({ id: ctx.key, ...payload }),
-    );
+    yield* updateStore([
+      setLoaderSuccess({ id: ctx.name, ...ctx.loader }),
+      setLoaderSuccess({ id: ctx.key, ...ctx.loader }),
+    ]);
   };
 }
 
@@ -236,9 +239,10 @@ export interface OptimisticCtx<
  * @remarks This means that we will first `apply` and then if the request is successful we
  * keep the change or we `revert` if there's an error.
  */
-export function* optimistic<
-  Ctx extends OptimisticCtx = OptimisticCtx,
->(ctx: Ctx, next: Next) {
+export function* optimistic<Ctx extends OptimisticCtx = OptimisticCtx>(
+  ctx: Ctx,
+  next: Next,
+) {
   if (!ctx.optimistic) {
     yield* next();
     return;
@@ -263,13 +267,13 @@ export function* simpleCache<Ctx extends ApiCtx = ApiCtx>(
   ctx: Ctx,
   next: Next,
 ) {
-  ctx.cacheData = yield* select((state) =>
+  ctx.cacheData = yield* select((state: QueryState) =>
     selectDataById(state, { id: ctx.key })
   );
   yield* next();
   if (!ctx.cache) return;
   const { data } = ctx.json;
-  ctx.actions.push(addData({ [ctx.key]: data }));
+  yield* updateStore(addData({ [ctx.key]: data }));
   ctx.cacheData = data;
 }
 
@@ -339,9 +343,7 @@ export function* performanceMonitor<Ctx extends PerfCtx = PerfCtx>(
 /**
  * This middleware will call the `saga` provided with the action sent to the middleware pipeline.
  */
-export function wrap<Ctx extends PipeCtx = PipeCtx>(
-  op: (a: Action) => OpFn,
-) {
+export function wrap<Ctx extends PipeCtx = PipeCtx>(op: (a: Action) => OpFn) {
   return function* (ctx: Ctx, next: Next) {
     yield* call(() => op(ctx.action));
     yield* next();

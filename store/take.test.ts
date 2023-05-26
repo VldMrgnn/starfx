@@ -1,7 +1,8 @@
-import { describe, expect, it, setupReduxScope } from "../test.ts";
+import { describe, expect, it } from "../test.ts";
 import { AnyAction, sleep, spawn } from "../deps.ts";
 
 import { put, take } from "./mod.ts";
+import { configureStore } from "./store.ts";
 
 const takeTests = describe("take()");
 
@@ -24,8 +25,8 @@ it(
       actual.push(yield* take("action-1"));
     }
 
-    const scope = setupReduxScope();
-    await scope.run(root);
+    const store = await configureStore({ initialState: {} });
+    await store.run(root);
 
     expect(actual).toEqual([
       { type: "action-1", payload: 1 },
@@ -84,8 +85,8 @@ it(takeTests, "take from default channel", async () => {
     }
   }
 
-  const scope = setupReduxScope();
-  await scope.run(genFn);
+  const store = await configureStore({ initialState: {} });
+  await store.run(genFn);
 
   const expected = [
     {

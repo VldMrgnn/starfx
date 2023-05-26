@@ -13,10 +13,6 @@ export {
   mockedFetch,
 } from "https://deno.land/x/mock_fetch@0.3.0/mod.ts";
 
-import { contextualize } from "./context.ts";
-import { configureStore, createScope } from "./deps.ts";
-import { createFxMiddleware } from "./redux/mod.ts";
-
 export function isLikeSelector(selector: unknown) {
   return (
     selector !== null &&
@@ -53,17 +49,4 @@ export function assertLike(
   }
 
   return comparable;
-}
-
-export function setupReduxScope() {
-  const scope = createScope();
-  const mdw = createFxMiddleware(scope);
-  const store = configureStore({
-    reducer: () => null,
-    middleware: [mdw.middleware],
-  });
-  scope.run(function* () {
-    yield* contextualize("redux:store", store);
-  });
-  return { run: mdw.run };
 }

@@ -1,13 +1,32 @@
-import type {
-  LoadingItemState,
-  LoadingMapPayload,
-  LoadingState,
-  Operation,
-} from "../deps.ts";
-
-export type { LoadingItemState, LoadingState };
+import type { Operation } from "../deps.ts";
 
 type IfAny<T, Y, N> = 0 extends 1 & T ? Y : N;
+
+export type IdProp = string | number;
+export type LoadingStatus = "loading" | "success" | "error" | "idle";
+export interface LoadingItemState<
+  M extends Record<string, unknown> = Record<string, unknown>,
+> {
+  id: IdProp;
+  status: LoadingStatus;
+  message: string;
+  lastRun: number;
+  lastSuccess: number;
+  meta: M;
+}
+
+export interface LoadingState<
+  M extends Record<string, unknown> = Record<string, unknown>,
+> extends LoadingItemState<M> {
+  isLoading: boolean;
+  isError: boolean;
+  isSuccess: boolean;
+  isInitialLoading: boolean;
+}
+
+export type LoadingPayload =
+  & Pick<LoadingItemState, "id">
+  & Partial<Pick<LoadingItemState, "message" | "meta">>;
 
 export interface Payload<P = any> {
   payload: P;
@@ -65,7 +84,7 @@ export interface FetchJsonCtx<P = any, ApiSuccess = any, ApiError = any>
 export interface ApiCtx<Payload = any, ApiSuccess = any, ApiError = any>
   extends FetchJsonCtx<Payload, ApiSuccess, ApiError> {
   actions: Action[];
-  loader: LoadingMapPayload<Record<string, any>> | null;
+  loader: LoadingPayload | null;
   cache: boolean;
   cacheData: any;
 }

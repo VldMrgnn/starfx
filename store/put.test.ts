@@ -1,7 +1,8 @@
-import { describe, expect, it, setupReduxScope } from "../test.ts";
+import { describe, expect, it } from "../test.ts";
 import { sleep, spawn } from "../deps.ts";
 
 import { ActionContext, put, take } from "./mod.ts";
+import { configureStore } from "./store.ts";
 
 const putTests = describe("put()");
 
@@ -27,8 +28,8 @@ it(putTests, "should send actions through channel", async () => {
     });
   }
 
-  const scope = setupReduxScope();
-  await scope.run(() => genFn("arg"));
+  const store = await configureStore({ initialState: {} });
+  await store.run(() => genFn("arg"));
 
   const expected = ["arg", "2"];
   expect(actual).toEqual(expected);
@@ -57,8 +58,8 @@ it(putTests, "should handle nested puts", async () => {
     yield* spawn(genA);
   }
 
-  const scope = setupReduxScope();
-  await scope.run(() => root());
+  const store = await configureStore({ initialState: {} });
+  await store.run(() => root());
 
   const expected = ["put b", "put a"];
   expect(actual).toEqual(expected);
@@ -75,8 +76,8 @@ it(
       yield* sleep(0);
     }
 
-    const scope = setupReduxScope();
-    await scope.run(() => root());
+    const store = await configureStore({ initialState: {} });
+    await store.run(() => root());
     expect(true).toBe(true);
   },
 );
@@ -103,8 +104,8 @@ it(
       yield* tsk;
     }
 
-    const scope = setupReduxScope();
-    await scope.run(() => root());
+    const store = await configureStore({ initialState: {} });
+    await store.run(() => root());
     const expected = ["didn't get missed"];
     expect(actual).toEqual(expected);
   },

@@ -1,4 +1,4 @@
-import { assert, build, emptyDir } from "./test.ts";
+import { build, emptyDir } from "./test.ts";
 
 main().then(console.log).catch(console.error);
 
@@ -6,7 +6,9 @@ async function main() {
   await emptyDir("./npm");
 
   const version = Deno.env.get("NPM_VERSION");
-  assert(version, "NPM_VERSION is required to build npm package");
+  if (!version) {
+    throw new Error("NPM_VERSION is required to build npm package");
+  }
 
   await build({
     entryPoints: [
@@ -19,12 +21,12 @@ async function main() {
         path: "react.ts",
       },
       {
-        name: "./redux",
-        path: "redux/mod.ts",
-      },
-      {
         name: "./query",
         path: "./query/mod.ts",
+      },
+      {
+        name: "./store",
+        path: "./store/mod.ts",
       },
     ],
     mappings: {
@@ -53,6 +55,10 @@ async function main() {
         name: "react-redux",
         version: "^8.0.5",
         peerDependency: true,
+      },
+      "https://esm.sh/immer@10.0.2?pin=v122": {
+        name: "immer",
+        version: "^10.0.2",
       },
     },
     outDir: "./npm",

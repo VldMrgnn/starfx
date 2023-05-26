@@ -1,5 +1,5 @@
 import { call } from "../fx/mod.ts";
-import { takeEvery } from "../redux/mod.ts";
+import { takeEvery } from "../store/mod.ts";
 import { compose } from "../compose.ts";
 import type { OpFn } from "../types.ts";
 import { parallel } from "../mod.ts";

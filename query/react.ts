@@ -166,7 +166,7 @@ export function useCache<D = any, A extends SagaAction = SagaAction>(
   action: A,
 ): UseCacheResult<D, A> {
   const id = action.payload.key;
-  const data = useSelector((s: any) => selectDataById(s, { id }));
+  const data: any = useSelector((s: any) => selectDataById(s, { id }));
   const query = useQuery(action);
   return { ...query, data: data || null };
 }
