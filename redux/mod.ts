@@ -36,7 +36,7 @@ export interface StoreLike<S = unknown> {
 
 export const ActionContext = createContext<Channel<Action, void>>(
   "redux:action",
-  createChannel<Action, void>()
+  createChannel<Action, void>(),
 );
 
 export const StoreContext = createContext<StoreLike>("redux:store");
@@ -76,7 +76,7 @@ export function* take(pattern: ActionPattern): Operation<Action> {
 
 export function* takeEvery<T>(
   pattern: ActionPattern,
-  op: (action: Action) => Operation<T>
+  op: (action: Action) => Operation<T>,
 ) {
   return yield* spawn(function* () {
     while (true) {
@@ -89,7 +89,7 @@ export function* takeEvery<T>(
 
 export function* takeLatest<T>(
   pattern: ActionPattern,
-  op: (action: Action) => Operation<T>
+  op: (action: Action) => Operation<T>,
 ) {
   return yield* spawn(function* () {
     let lastTask;
@@ -106,7 +106,7 @@ export function* takeLatest<T>(
 
 export function* takeLeading<T>(
   pattern: ActionPattern,
-  op: (action: Action) => Operation<T>
+  op: (action: Action) => Operation<T>,
 ) {
   return yield* spawn(function* () {
     while (true) {
@@ -141,8 +141,8 @@ function* send(action: AnyAction) {
               channel: ActionContext,
               action: a,
             });
-          }
-      )
+          },
+      ),
     );
   } else {
     yield* emit({

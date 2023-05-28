@@ -19,26 +19,19 @@
  *    should experiment what it would look like to listen for updates to state
  */
 
-import {
-  run,
-  z,
-  produce,
-  Middleware,
-  configureStore as reduxStore,
-  enableBatching,
-} from "./deps.ts";
-import { ActionWPayload, createFxMiddleware, put } from "./redux/mod.ts";
-import { describe, it } from "./test.ts";
+import { createScope, getframe, produce, Scope, z } from "./deps.ts";
+import { asserts, describe, it } from "./test.ts";
+import { contextualize } from "./context.ts";
 
 const tests = describe("store");
 
 /**
- * BUILDER THE SCHEMA
+ * BUILD THE SCHEMA
  */
 const User = z.object({
   id: z.string(),
   name: z.string(),
-});
+}).default({ id: "", name: "" });
 
 const Token = z
   .object({
@@ -72,83 +65,78 @@ function findUsers(state: State) {
  * IMPLEMENTATION
  */
 
-type StoreUpdater<P = never> = (
+type StoreUpdater = (
   s: State,
-  p: P extends never ? undefined : P
 ) => State | void;
 
-interface StoreAction<P = never> {
-  type: string;
-  updater: StoreUpdater<P>;
-  payload: P extends never ? undefined : P;
-}
+type Listener = () => void;
 
-/*
-function* createStore<T extends z.ZodRawShape>(
-  schema: z.ZodObject<T>,
-  initState?: State
-) {
-  yield* contextualize("schema", schema);
-  yield* contextualize("store", initState || schema.parse(undefined));
-}
-
-function* dispatch<P>(action: StoreAction<P>) {
-  const frame = yield* getframe();
-  const store = frame.context["store"] as State;
-  const nextState = produce(store, (draft) =>
-    action.updater(draft, action.payload)
-  );
-  yield* contextualize("store", nextState);
-}
-*/
-
-function createAction<P = never>(type: string, updater: StoreUpdater<P>) {
-  return (payload?: P): StoreAction<P> => ({
-    type,
-    updater,
-    payload,
+export function register<S>(store: FxStore<S>) {
+  const scope = store.getScope();
+  return scope.run(function* () {
+    yield* contextualize("store", store);
   });
 }
 
-interface SetupStoreProps {
-  schema: z.ZodObject<z.ZodRawShape>;
-  middleware?: Middleware[];
-  initialState?: Partial<State>;
+interface FxStore<S> {
+  getScope: () => Scope;
+  getState: () => S;
+  subscribe: (fn: Listener) => () => void;
+  update: (u: StoreUpdater) => void;
 }
 
-function starfxReducer(s: State, a: ActionWPayload<StoreAction>) {
-  if (a.type === "STATE_UPDATE") {
-    return produce(s, (draft) => a.payload.updater(draft, a.payload.payload));
+export function createStore<S>(
+  { scope, initialState = {} }: {
+    scope: Scope;
+    initialState: Partial<S>;
+  },
+): FxStore<S> {
+  let state = initialState as S;
+  const listeners = new Set<Listener>();
+
+  function getScope() {
+    return scope;
   }
 
-  return s;
+  function getState() {
+    return state;
+  }
+
+  function subscribe(fn: Listener) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  }
+
+  function update(updater: StoreUpdater) {
+    try {
+      const nextState = produce(getState(), updater);
+      state = nextState;
+      listeners.forEach((fn) => fn());
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  return {
+    getScope,
+    getState,
+    subscribe,
+    update,
+  };
 }
 
-export function configureStore({
-  schema,
-  initialState,
-  middleware = [],
-}: SetupStoreProps) {
-  const fx = createFxMiddleware();
-  const initState = initialState || schema.parse(undefined);
-
-  const store = reduxStore({
-    preloadedState: initState,
-    reducer: enableBatching(starfxReducer),
-    middleware: (getDefaultMiddleware) =>
-      getDefaultMiddleware().concat([fx.middleware, ...middleware]),
-  });
-
-  return { store, fx };
+function* updateStore(updater: StoreUpdater) {
+  const frame = yield* getframe();
+  const store = frame.context["store"] as FxStore<State>;
+  store.update(updater);
 }
 
 /**
  * USER-LAND
  */
 
-const updateUser = createAction(
-  "UPDATE_USER",
-  (state: State, { id, name }: { id: string; name: string }) => {
+const updateUser =
+  ({ id, name }: { id: string; name: string }) => (state: State) => {
     // use selectors to find the data you want to mutate
     const user = findUserById(state, { id });
     user.name = name;
@@ -158,16 +146,33 @@ const updateUser = createAction(
     users[id].name = name;
 
     delete users[2];
-    users[id] = User.parse(undefined);
+    users[3] = User.parse(undefined);
 
     // or mutate state directly without selectors
     state.dev = true;
-  }
-);
+  };
 
 it(tests, "should do something", async () => {
-  const store = configureStore({ schema: Schema });
-  await run(function* () {
-    yield* put(updateUser({ id: "1", name: "eric" }));
+  const scope = createScope();
+  const initialState: Partial<State> = Schema.parse({
+    users: { 1: { id: "1", name: "testing" }, 2: { id: "2", name: "wow" } },
+    dev: false,
+  });
+  const store = createStore({ scope, initialState });
+
+  await register(store);
+
+  store.subscribe(() => {
+    asserts.assertEquals(store.getState(), {
+      users: { 1: { id: "1", name: "eric" }, 3: { id: "", name: "" } },
+      currentUser: User.parse(undefined),
+      theme: "",
+      token: null,
+      dev: true,
+    });
+  });
+
+  await scope.run(function* () {
+    yield* updateStore(updateUser({ id: "1", name: "eric" }));
   });
 });
