@@ -1,7 +1,7 @@
-import { React } from "./deps.ts";
+import { AnyAction, React } from "./deps.ts";
 const { createContext, createElement: h, useContext } = React;
-import type { Action, Operation, Scope } from "./deps.ts";
-import { ActionContext } from "./redux/mod.ts";
+import type { Operation, Scope } from "./deps.ts";
+import { put } from "./store.test.ts";
 
 export * from "./query/react.ts";
 
@@ -30,12 +30,11 @@ export function useScope(): Scope {
  * for redux.  This makes it so you don't have to dispatch a redux action
  * in order to trigger an fx.
  */
-export function useDispatchFx() {
+export function useFxDispatch() {
   const scope = useScope();
-  return (action: Action) =>
+  return (action: AnyAction | AnyAction[]) =>
     scope.run(function* () {
-      const { input } = yield* ActionContext;
-      yield* input.send(action);
+      yield* put(action);
     });
 }
 
