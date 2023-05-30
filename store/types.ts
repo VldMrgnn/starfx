@@ -1,4 +1,4 @@
-import type { Scope } from "../deps.ts";
+import type { Operation, Scope } from "../deps.ts";
 
 export type StoreUpdater<S> = (
   s: S,
@@ -14,7 +14,7 @@ export interface FxStore<S> {
   getScope: () => Scope;
   getState: () => S;
   subscribe: (fn: Listener) => () => void;
-  update: (u: StoreUpdater<S>) => void;
+  update: (u: StoreUpdater<S>) => Operation<UpdaterCtx<S>>;
 }
 
 export interface ActionWPayload<P> {

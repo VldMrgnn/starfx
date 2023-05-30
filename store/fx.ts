@@ -2,7 +2,12 @@ import { AnyAction, Channel, Operation, spawn, Task } from "../deps.ts";
 import { contextualize } from "../context.ts";
 import { call, cancel, emit } from "../fx/mod.ts";
 import { ActionPattern, matcher } from "../redux/matcher.ts";
-import type { ActionWPayload, FxStore, StoreUpdater } from "./types.ts";
+import type {
+  ActionWPayload,
+  FxStore,
+  StoreUpdater,
+  UpdaterCtx,
+} from "./types.ts";
 import { ActionContext, StoreContext } from "./context.ts";
 
 export function register<S>(store: FxStore<S>) {
@@ -12,9 +17,12 @@ export function register<S>(store: FxStore<S>) {
   });
 }
 
-export function* updateStore<S>(updater: StoreUpdater<S>) {
+export function* updateStore<S>(
+  updater: StoreUpdater<S>,
+): Operation<UpdaterCtx<unknown>> {
   const store = yield* StoreContext;
-  store.update(updater as any);
+  const ctx = yield* store.update(updater as any);
+  return ctx;
 }
 
 export function* once({

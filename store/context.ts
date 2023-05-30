@@ -3,12 +3,12 @@ import { AnyAction, Channel, createChannel, createContext } from "../deps.ts";
 import type { FxStore } from "./types.ts";
 
 export const ActionContext = createContext<Channel<AnyAction, void>>(
-  "action",
+  "store:action",
   createChannel<AnyAction, void>(),
 );
 
 export const StoreUpdateContext = createContext<Channel<void, void>>(
-  "action",
+  "store:update",
   createChannel<void, void>(),
 );
 

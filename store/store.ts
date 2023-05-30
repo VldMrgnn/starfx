@@ -6,8 +6,8 @@ import { StoreUpdateContext } from "./context.ts";
 export function createStore<S>(
   { scope, initialState = {}, middleware = [] }: {
     scope: Scope;
-    initialState: Partial<S>;
-    middleware: BaseMiddleware[];
+    initialState?: Partial<S>;
+    middleware?: BaseMiddleware[];
   },
 ): FxStore<S> {
   let state = initialState as S;
@@ -49,11 +49,11 @@ export function createStore<S>(
   }
 
   const mdw = createUpdater<S>();
-  function update(updater: StoreUpdater<S>) {
+  function* update(updater: StoreUpdater<S>) {
     const ctx = {
       updater,
     };
-    return mdw(ctx);
+    return yield* mdw(ctx);
   }
 
   return {
