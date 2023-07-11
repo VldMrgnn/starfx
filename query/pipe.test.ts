@@ -389,7 +389,7 @@ it.ignore(tests, "retry with actionFn with payload", async () => {
   await task;
 });
 
-it.only(tests, "should only call thunk once", () => {
+it(tests, "should only call thunk once", async () => {
   const api = createPipe<RoboCtx>();
   api.use(api.routes());
   let acc = "";
@@ -403,8 +403,8 @@ it.only(tests, "should only call thunk once", () => {
     yield* put(action1(1));
   });
 
-  const { store, run } = setupStore(api.bootup);
-  run();
+  const store = await configureStore({ initialState: {} });
+  store.run(api.bootup);
   store.dispatch(action2());
   asserts.assertEquals(acc, "a");
 });

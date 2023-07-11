@@ -67,7 +67,7 @@ it(
           const store = yield* StoreContext;
           const chan = yield* StoreUpdateContext;
           const msgList = yield* chan.output;
-          yield* msgList;
+          yield* msgList.next();
           asserts.assertEquals(store.getState(), {
             users: { 1: { id: "1", name: "eric" }, 3: { id: "", name: "" } },
             theme: "",
