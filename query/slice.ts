@@ -1,6 +1,6 @@
-import { LoadingState } from "../deps.ts";
 import type {
   IdProp,
+  LoadingState,
   LoadingItemState,
   LoadingPayload,
   LoadingStatus,

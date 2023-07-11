@@ -1,5 +1,3 @@
-export { BATCH, batchActions } from "../deps.ts";
-
 export * from "./pipe.ts";
 export * from "./api.ts";
 export * from "./types.ts";

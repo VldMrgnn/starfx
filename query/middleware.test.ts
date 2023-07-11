@@ -1,7 +1,6 @@
 import { assertLike, asserts, describe, expect, it } from "../test.ts";
 import { configureStore, takeLatest } from "../store/mod.ts";
 import { sleep as delay } from "../deps.ts";
-import type { MapEntity } from "../deps.ts";
 import { call } from "../fx/mod.ts";
 
 import { createApi } from "./api.ts";
@@ -430,7 +429,7 @@ it(tests, "createApi with own key", async () => {
       const result = new TextDecoder("utf-8").decode(buff.value);
       const { users } = JSON.parse(result);
       if (!users) return;
-      const curUsers = (users as User[]).reduce<MapEntity<User>>((acc, u) => {
+      const curUsers = (users as User[]).reduce<Record<string, User>>((acc, u) => {
         acc[u.id] = u;
         return acc;
       }, {});
@@ -496,7 +495,7 @@ it(tests, "createApi with custom key but no payload", async () => {
       const result = new TextDecoder("utf-8").decode(buff.value);
       const { users } = JSON.parse(result);
       if (!users) return;
-      const curUsers = (users as User[]).reduce<MapEntity<User>>((acc, u) => {
+      const curUsers = (users as User[]).reduce<Record<string, User>>((acc, u) => {
         acc[u.id] = u;
         return acc;
       }, {});

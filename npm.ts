@@ -39,18 +39,6 @@ async function main() {
         version: "^18.2.0",
         peerDependency: true,
       },
-      "https://esm.sh/robodux@15.0.1?pin=v122": {
-        name: "robodux",
-        version: "^15.0.1",
-      },
-      "https://esm.sh/@reduxjs/toolkit@1.9.5?pin=v122": {
-        name: "@reduxjs/toolkit",
-        version: "^1.9.5",
-      },
-      "https://esm.sh/redux-batched-actions@0.5.0?pin=v122": {
-        name: "redux-batched-actions",
-        version: "^0.5.0",
-      },
       "https://esm.sh/react-redux@8.0.5?pin=v122": {
         name: "react-redux",
         version: "^8.0.5",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "../test.ts";
 import { cancel } from "../fx/mod.ts";
-import type { AnyAction } from "../deps.ts";
 
+import type { AnyAction } from "./types.ts";
 import { configureStore, take, takeEvery } from "./mod.ts";
 
 const testEvery = describe("takeEvery()");

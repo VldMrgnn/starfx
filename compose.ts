@@ -23,26 +23,32 @@ export function compose<Ctx extends BaseCtx = BaseCtx, T = unknown>(
     }
   }
 
-  return function* composeFn(context: Ctx, next?: BaseMiddleware<Ctx, T>) {
+  return function* composeFn(context: Ctx, mdw?: BaseMiddleware<Ctx, T>) {
     // last called middleware #
     let index = -1;
 
-    function* dispatch(i: number): Generator<Instruction, Result<T>, void> {
+    function* dispatch(i: number): Generator<Instruction, T | undefined, void> {
       if (i <= index) {
-        return Err(new Error("next() called multiple times"));
+        throw new Error("next() called multiple times");
       }
       index = i;
       let fn: BaseMiddleware<Ctx, T> | undefined = middleware[i];
       if (i === middleware.length) {
-        fn = next;
+        fn = mdw;
       }
-      if (!fn) return Err(new Error("fn is falsy"));
+      if (!fn) {
+        return;
+      }
       const nxt = dispatch.bind(null, i + 1);
       const result = yield* fn(context, nxt);
-      return Ok(result);
+      return result;
     }
 
-    yield* call(() => dispatch(0));
-    return context;
+    const result = yield* call(() => dispatch(0));
+    if (result.ok) {
+      return Ok(context);
+    } else {
+      return result;
+    }
   };
 }

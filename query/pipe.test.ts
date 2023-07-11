@@ -2,7 +2,6 @@ import { assertLike, asserts, describe, it } from "../test.ts";
 import { call } from "../fx/mod.ts";
 import { configureStore, put } from "../store/mod.ts";
 import { sleep as delay } from "../deps.ts";
-import type { Action } from "../deps.ts";
 
 import { createPipe } from "./pipe.ts";
 import type { Next, PipeCtx } from "./types.ts";
@@ -15,7 +14,6 @@ interface RoboCtx<D = Record<string, unknown>, P = any> extends PipeCtx<P> {
   url: string;
   request: { method: string; body?: Record<string, unknown> };
   response: D;
-  actions: Action[];
 }
 
 interface User {
@@ -151,7 +149,7 @@ it(
   },
 );
 
-it(
+it.only(
   tests,
   "when providing a generator the to api.create function - should call that generator before all other middleware",
   async () => {

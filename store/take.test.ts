@@ -1,6 +1,7 @@
 import { describe, expect, it } from "../test.ts";
-import { AnyAction, sleep, spawn } from "../deps.ts";
+import { sleep, spawn } from "../deps.ts";
 
+import type { AnyAction } from './types.ts';
 import { put, take } from "./mod.ts";
 import { configureStore } from "./store.ts";
 

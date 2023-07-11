@@ -2,8 +2,6 @@ import { describe, expect, it } from "../test.ts";
 
 import { call, keepAlive } from "../fx/mod.ts";
 import { configureStore, takeEvery, updateStore } from "../store/mod.ts";
-import { createAction } from "../deps.ts";
-import type { MapEntity } from "../deps.ts";
 
 import { queryCtx, requestMonitor, urlParser } from "./middleware.ts";
 import { createApi } from "./api.ts";
@@ -181,7 +179,7 @@ it(tests, "run() from a normal saga", async () => {
     yield* next();
     acc += "a";
   });
-  const action2 = createAction("ACTION");
+  const action2 = () => ({ type: 'ACTION' });
   function* onAction() {
     const ctx = yield* call(() => action1.run(action1({ id: "1" })));
     if (!ctx.ok) {
@@ -235,7 +233,7 @@ it(tests, "createApi with hash key on a large post", async () => {
       const result = new TextDecoder("utf-8").decode(buff.value);
       const { users } = JSON.parse(result);
       if (!users) return;
-      const curUsers = (users as User[]).reduce<MapEntity<User>>((acc, u) => {
+      const curUsers = (users as User[]).reduce<Record<string, User>>((acc, u) => {
         acc[u.id] = u;
         return acc;
       }, {});

@@ -1,16 +1,35 @@
-import { AnyAction, Channel, Operation, spawn, Task } from "../deps.ts";
-import { call, cancel, emit } from "../fx/mod.ts";
+import { Channel, Operation, spawn, Task } from "../deps.ts";
+import { call, cancel, parallel} from "../fx/mod.ts";
 
 import { ActionPattern, matcher } from "./matcher.ts";
-import type { ActionWPayload, StoreUpdater, UpdaterCtx } from "./types.ts";
+import type { AnyAction, ActionWPayload, StoreUpdater, UpdaterCtx, AnyState } from "./types.ts";
 import { ActionContext, StoreContext } from "./context.ts";
 
-export function* updateStore<S>(
+export function* updateStore<S extends AnyState>(
   updater: StoreUpdater<S> | StoreUpdater<S>[],
-): Operation<UpdaterCtx<unknown>> {
+): Operation<UpdaterCtx<S>> {
   const store = yield* StoreContext;
   const ctx = yield* store.update(updater as any);
-  return ctx;
+  // TODO: fix type
+  return ctx as any;
+}
+
+export function* emit({
+  channel,
+  action,
+}: {
+  channel: Operation<Channel<AnyAction, void>>;
+  action: AnyAction | AnyAction[];
+}) {
+  const { input } = yield* channel;
+  if (Array.isArray(action)) {
+    if (action.length === 0) {
+      return;
+    }
+    yield* parallel(action.map((a) => () => input.send(a)));
+  } else {
+    yield* input.send(action);
+  }
 }
 
 export function* once({

@@ -1,18 +1,26 @@
-import { Action, createScope, produce, Result, Scope, Task } from "../deps.ts";
+import {
+  createScope,
+  produceWithPatches,
+  enablePatches,
+  Result,
+  Scope,
+  Task,
+} from "../deps.ts";
 import { BaseMiddleware, compose } from "../compose.ts";
-import { contextualize } from "../context.ts";
 import type { OpFn } from "../types.ts";
 import { call } from "../fx/mod.ts";
 
 import type {
+  AnyAction,
   AnyState,
   FxStore,
   Listener,
   StoreUpdater,
   UpdaterCtx,
 } from "./types.ts";
-import { StoreUpdateContext } from "./context.ts";
+import { StoreContext, StoreUpdateContext } from "./context.ts";
 import { put } from "./fx.ts";
+import { Next } from "../query/types.ts";
 
 const stubMsg = "This is merely a stub, not implemented";
 
@@ -41,6 +49,7 @@ export function createStore<S extends AnyState>({
 }: CreateStore<S>): FxStore<S> {
   let state = initialState;
   const listeners = new Set<Listener>();
+  enablePatches();
 
   function getScope() {
     return scope;
@@ -55,32 +64,44 @@ export function createStore<S extends AnyState>({
     return () => listeners.delete(fn);
   }
 
+  function* updateMdw(ctx: UpdaterCtx<S>, next: Next) {
+    const upds: StoreUpdater<S>[] = [];
+
+    if (Array.isArray(ctx.updater)) {
+      upds.push(...ctx.updater);
+    } else {
+      upds.push(ctx.updater);
+    }
+
+    const [nextState, patches, _] = produceWithPatches(getState(), (draft) => {
+      // TODO: check for return value inside updater
+      upds.forEach((updater) => updater(draft as any));
+    }); 
+    ctx.patches = patches;
+
+    // set the state!
+    state = nextState;
+
+    yield* next();
+  }
+
+  function* notifyChannelMdw(_: UpdaterCtx<S>, next: Next) {
+    const chan = yield* StoreUpdateContext;
+    yield* chan.input.send();
+    yield* next();
+  }
+
+  function* notifyListenersMdw(_: UpdaterCtx<S>, next: Next) {
+    listeners.forEach((f) => f());
+    yield* next();
+  }
+
   function createUpdater() {
     const fn = compose<UpdaterCtx<S>>([
       ...middleware,
-      function* (ctx, next) {
-        let nextState: S;
-        if (Array.isArray(ctx.updater)) {
-          nextState = produce(getState(), (draft) => {
-            const upds = ctx.updater as StoreUpdater<S>[];
-            // TODO: check for return value inside updater
-            upds.forEach((updater) => updater(draft as any));
-          });
-        } else {
-          nextState = produce(getState(), ctx.updater);
-        }
-        state = nextState;
-        yield* next();
-      },
-      function* (_, next) {
-        const chan = yield* StoreUpdateContext;
-        yield* chan.input.send();
-        yield* next();
-      },
-      function* (_, next) {
-        listeners.forEach((f) => f());
-        yield* next();
-      },
+      updateMdw,
+      notifyChannelMdw,
+      notifyListenersMdw,
     ]);
 
     return fn;
@@ -90,11 +111,17 @@ export function createStore<S extends AnyState>({
   function* update(updater: StoreUpdater<S> | StoreUpdater<S>[]) {
     const ctx = {
       updater,
+      patches: [],
     };
-    return yield* mdw(ctx);
+    const result = yield* mdw(ctx);
+    // TODO: dev mode only?
+    if (!result.ok) {
+      console.error(result.error);
+    }
+    return result;
   }
 
-  function dispatch(action: Action | Action[]) {
+  function dispatch(action: AnyAction | AnyAction[]): Task<any> {
     return scope.run(function* () {
       yield* put(action);
     });
@@ -116,17 +143,20 @@ export function createStore<S extends AnyState>({
     // refer to pieces of business logic -- that can also mutate state
     dispatch,
     // stubs so `react-redux` is happy
-    replaceReducer<S = any>(_nextReducer: (_s: S, _a: Action) => void): void {
+    replaceReducer<S = any>(
+      _nextReducer: (_s: S, _a: AnyAction) => void,
+    ): void {
       throw new Error(stubMsg);
     },
     [Symbol.observable]: observable,
   };
 }
 
-export function register<S>(store: FxStore<S>) {
+export function register<S extends AnyState>(store: FxStore<S>) {
   const scope = store.getScope();
   return scope.run(function* () {
-    yield* contextualize("store", store);
+    // TODO: fix type
+    yield* StoreContext.set(store as any);
   });
 }
 
