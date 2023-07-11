@@ -1,8 +1,8 @@
 import type {
   IdProp,
-  LoadingState,
   LoadingItemState,
   LoadingPayload,
+  LoadingState,
   LoadingStatus,
 } from "./types.ts";
 

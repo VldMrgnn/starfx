@@ -1,6 +1,6 @@
 import { call, race } from "../fx/mod.ts";
 import { ActionWPayload, take } from "../store/mod.ts";
-import type { AnyAction } from '../store/types.ts';
+import type { AnyAction } from "../store/types.ts";
 import { Operation, sleep, spawn, Task } from "../deps.ts";
 import type { OpFn } from "../types.ts";
 
@@ -44,7 +44,10 @@ export function poll(parentTimer: number = 5 * 1000, cancelType?: string) {
  * cache timer then the second call will not send an http request.
  */
 export function timer(timer: number = 5 * MINUTES) {
-  return function* onTimer(actionType: string, op: (action: AnyAction) => OpFn) {
+  return function* onTimer(
+    actionType: string,
+    op: (action: AnyAction) => OpFn,
+  ) {
     const map: { [key: string]: Task<unknown> } = {};
 
     function* activate(action: ActionWPayload<CreateActionPayload>) {

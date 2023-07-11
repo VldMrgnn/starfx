@@ -429,10 +429,13 @@ it(tests, "createApi with own key", async () => {
       const result = new TextDecoder("utf-8").decode(buff.value);
       const { users } = JSON.parse(result);
       if (!users) return;
-      const curUsers = (users as User[]).reduce<Record<string, User>>((acc, u) => {
-        acc[u.id] = u;
-        return acc;
-      }, {});
+      const curUsers = (users as User[]).reduce<Record<string, User>>(
+        (acc, u) => {
+          acc[u.id] = u;
+          return acc;
+        },
+        {},
+      );
       ctx.response = new Response();
       ctx.json = {
         ok: true,
@@ -495,10 +498,13 @@ it(tests, "createApi with custom key but no payload", async () => {
       const result = new TextDecoder("utf-8").decode(buff.value);
       const { users } = JSON.parse(result);
       if (!users) return;
-      const curUsers = (users as User[]).reduce<Record<string, User>>((acc, u) => {
-        acc[u.id] = u;
-        return acc;
-      }, {});
+      const curUsers = (users as User[]).reduce<Record<string, User>>(
+        (acc, u) => {
+          acc[u.id] = u;
+          return acc;
+        },
+        {},
+      );
       ctx.response = new Response();
       ctx.json = {
         ok: true,

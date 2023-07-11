@@ -18,7 +18,7 @@ export interface LoadingItemState<
 export interface LoadingState<
   M extends Record<string, unknown> = Record<string, unknown>,
 > extends LoadingItemState<M> {
-    isIdle: boolean;
+  isIdle: boolean;
   isLoading: boolean;
   isError: boolean;
   isSuccess: boolean;

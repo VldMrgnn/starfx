@@ -179,7 +179,7 @@ it(tests, "run() from a normal saga", async () => {
     yield* next();
     acc += "a";
   });
-  const action2 = () => ({ type: 'ACTION' });
+  const action2 = () => ({ type: "ACTION" });
   function* onAction() {
     const ctx = yield* call(() => action1.run(action1({ id: "1" })));
     if (!ctx.ok) {
@@ -233,10 +233,13 @@ it(tests, "createApi with hash key on a large post", async () => {
       const result = new TextDecoder("utf-8").decode(buff.value);
       const { users } = JSON.parse(result);
       if (!users) return;
-      const curUsers = (users as User[]).reduce<Record<string, User>>((acc, u) => {
-        acc[u.id] = u;
-        return acc;
-      }, {});
+      const curUsers = (users as User[]).reduce<Record<string, User>>(
+        (acc, u) => {
+          acc[u.id] = u;
+          return acc;
+        },
+        {},
+      );
       ctx.response = new Response();
       ctx.json = {
         ok: true,

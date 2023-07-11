@@ -38,8 +38,8 @@ export {
 } from "https://esm.sh/react-redux@8.0.5?pin=v122";
 
 export {
+  enablePatches,
   produce,
   produceWithPatches,
-  enablePatches,
 } from "https://esm.sh/immer@10.0.2?pin=v122";
 export type { Patch } from "https://esm.sh/immer@10.0.2?pin=v122";

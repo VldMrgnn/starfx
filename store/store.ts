@@ -1,7 +1,7 @@
 import {
   createScope,
-  produceWithPatches,
   enablePatches,
+  produceWithPatches,
   Result,
   Scope,
   Task,
@@ -76,7 +76,7 @@ export function createStore<S extends AnyState>({
     const [nextState, patches, _] = produceWithPatches(getState(), (draft) => {
       // TODO: check for return value inside updater
       upds.forEach((updater) => updater(draft as any));
-    }); 
+    });
     ctx.patches = patches;
 
     // set the state!
