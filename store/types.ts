@@ -22,6 +22,12 @@ export interface ActionWPayload<P> {
 
 export type AnyState = Record<string, any>;
 
+declare global {
+  interface SymbolConstructor {
+    readonly observable: symbol
+  }
+}
+
 export interface FxStore<S extends AnyState> {
   getScope: () => Scope;
   getState: () => S;

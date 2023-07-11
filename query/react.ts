@@ -1,7 +1,7 @@
-import type { LoadingState } from "../deps.ts";
 import { React, useDispatch, useSelector } from "../deps.ts";
 const { useState, useEffect } = React;
 
+import type { LoadingState } from "./types.ts";
 import type { QueryState } from "./slice.ts";
 import { selectDataById, selectLoaderById } from "./slice.ts";
 
@@ -102,7 +102,7 @@ export function useApi<P = any, A extends SagaAction = SagaAction<P>>(
 export function useApi<A extends SagaAction = SagaAction>(
   action: ActionFnSimple,
 ): UseApiSimpleProps;
-export function useApi(action: any) {
+export function useApi(action: any): any {
   const dispatch = useDispatch();
   const loader = useLoader(action);
   const trigger = (p: any) => {
