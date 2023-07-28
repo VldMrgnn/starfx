@@ -133,9 +133,11 @@ export function createStore<S extends AnyState>({
     });
   }
 
+
   return {
     getScope,
     getState,
+    initialState: structuredClone(initialState),
     subscribe,
     update,
     run,

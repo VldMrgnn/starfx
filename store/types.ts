@@ -31,6 +31,7 @@ declare global {
 export interface FxStore<S extends AnyState> {
   getScope: () => Scope;
   getState: () => S;
+  initialState: S;
   subscribe: (fn: Listener) => () => void;
   update: (u: StoreUpdater<S>) => Operation<Result<UpdaterCtx<S>>>;
   run: <T>(op: OpFn<T>) => Task<Result<T>>;
