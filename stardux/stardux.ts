@@ -1,4 +1,3 @@
-import { Operation, run, expect} from "../deps.ts";
 import { take, updateStore } from "../store/mod.ts";
 import { match, P } from "../deps.ts";
 import { mapReducers } from "../deps.ts";
@@ -60,8 +59,7 @@ if (!store) {
   const mergeRegexPattern = new RegExp(
     `^${starfxPrefix}(${storeKeys.join("|")})${mergeSuffix}$`
   );
-
-  console.log("sxnext", action);
+  
   return match(action)
     .with(
       { type: P.string.regex(setRegexPattern), payload: P.any },
@@ -126,7 +124,22 @@ if (!store) {
       }
     )
     .otherwise(() => {
-      console.log("NOT A PREDEFINED ACTION:", action);
+      if (
+        [
+          setSuffix,
+          resetSuffix,
+          addSuffix,
+          removeSuffix,
+          patchSuffix,
+          mergeSuffix,
+        ].some((suffix) => action.type.endsWith(suffix))
+      ) {
+        console.log(
+          "You probably forgot to register the repo of: ",
+          action,
+          " in the rootStore"
+        );
+      }
     });
 }
 export function* starduxTakeEvery() {
