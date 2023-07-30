@@ -1,6 +1,6 @@
 import { assertLike, asserts, describe, expect, it } from "../test.ts";
 import { sleep as delay } from "../deps.ts";
-import { call } from "../fx/mod.ts";
+import { call,go } from "../fx/mod.ts";
 import {
   createApi,
   createKey,
@@ -27,6 +27,7 @@ import {
   undoer,
   updateStore,
 } from "../store/mod.ts";
+import { spawn } from "https://deno.land/x/effection@3.0.0-alpha.9/mod.ts";
 
 interface User {
   id: string;
@@ -620,3 +621,66 @@ it(tests, "check error", async () => {
   
   expect(a).toEqual(2);
 });
+
+
+// it(tests, 'check loaders - 2', async () => {
+//   const api = createApi();
+//   api.use(errorHandler);
+//   api.use(requestMonitor());
+//   api.use(storeMdw());
+//   api.use(api.routes());
+//   api.use(function* fetchApi(ctx, next) {
+//     if (`${ctx.req().url}`.startsWith("/users/")) {
+//       ctx.json = { ok: true, data: mockUser2 };
+//       yield* next();
+//       return;
+//     }
+//     const data = {
+//       users: [mockUser],
+//     };
+//     ctx.json = { ok: true, data };
+//     yield* next();
+//   });
+
+//   const fetchUsers = api.create(
+//     `/users`,
+//     { supervisor: takeEvery },
+//     function* processUsers(ctx: ApiCtx<unknown, { users: User[] }>, next) {
+//       try{
+//         yield* spawn(function*(){
+//           throw new Error("some error");
+//         }
+//         );
+
+//       yield* next();
+//       if (!ctx.json.ok) return;
+//       const { users } = ctx.json.data;
+
+//       yield* updateStore<UserState>((state) => {
+//         users.forEach((u:any) => {
+//           state.users[u.id] = u;
+//         });
+//       });
+//     }catch(err){
+//       console.log('!! >>>  >>>>',err );
+//     }
+//     },
+//   );
+
+//   const store = await configureStore({
+//     initialState: {
+//       ...createQueryState(),
+//       users: {},
+//     },
+//   });
+//   store.run(api.bootup);
+
+//   store.dispatch(fetchUsers());
+
+//   await sleep(350);
+//   console.log(store.getState());
+//   expect(store.getState()).toEqual({
+//     ...createQueryState(),
+//     users: {[mockUser.id]: mockUser},
+//   });
+// })
