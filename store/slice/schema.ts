@@ -6,7 +6,7 @@ import { StoreUpdater } from "../types.ts";
 import { configureStore } from "../store.ts";
 
 interface BaseType<TInput, TOutput> {
-  _types: { input: TInput, output: TOutput };
+  _types: { input: TInput; output: TOutput };
 }
 
 /* interface SchemaType<S extends AnyState,
@@ -19,8 +19,8 @@ interface BaseType<TInput, TOutput> {
 type SchemaFn<
   S extends AnyState,
   O extends Record<string, SchemaFn<S>>,
-  P extends keyof O = keyof O
-> = (name: string) => { actions: Record<P>};
+  P extends keyof O = keyof O,
+> = (name: string) => { actions: Record<P> };
 
 function createSchema<
   S extends AnyState = AnyState,
