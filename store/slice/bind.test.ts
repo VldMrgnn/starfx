@@ -19,8 +19,8 @@ import { Operation } from "../../deps.ts";
 
 const tests = describe("bindStore");
 
-it(tests, "sets user", async () => {
-  // Deno.test( "sets user", async () => {
+it(tests, "runs basic actions on create table", async () => {
+  // Deno.test( "runs basic actions on create table", async () => {
   interface ThunkCtx<P = any, D = any> extends PipeCtx<P>, LoaderCtx<P> {
     actions: ActionWithPayload<P>[];
     json: D | null;
