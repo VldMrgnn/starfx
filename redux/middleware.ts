@@ -1,39 +1,28 @@
 import {
-  Action,
   BATCH,
   BatchAction,
+  combineReducers,
+  createScope,
+  createSignal,
+  enableBatching,
   ReducersMapObject,
   Scope,
+  Signal,
 } from "../deps.ts";
-import { combineReducers, createScope, enableBatching } from "../deps.ts";
-import { parallel } from "../fx/mod.ts";
 import type { AnyAction } from "../types.ts";
-
 import { ActionContext, emit, StoreContext } from "./fx.ts";
 import { reducers as queryReducers } from "./query.ts";
 import type { StoreLike } from "./types.ts";
 
-function* send(action: AnyAction) {
-  if (action.type === BATCH) {
-    const actions = action.payload as BatchAction[];
-    const group = yield* parallel(
-      actions.map(
-        (a) =>
-          function* () {
-            yield* emit({
-              channel: ActionContext,
-              action: a as Action,
-            });
-          },
-      ),
-    );
-    yield* group;
-  } else {
-    yield* emit({
-      channel: ActionContext,
-      action,
-    });
+export function send(signal: Signal<AnyAction, void>, act: AnyAction) {
+  let action: AnyAction | AnyAction[] = act;
+  if (act.type === BATCH) {
+    action = act.payload as BatchAction[];
   }
+  emit({
+    signal,
+    action,
+  });
 }
 
 export function createFxMiddleware(initScope?: Scope) {
@@ -44,15 +33,15 @@ export function createFxMiddleware(initScope?: Scope) {
     const tuple = createScope();
     scope = tuple[0];
   }
+  const signal = createSignal<AnyAction, void>();
 
   function middleware<S = unknown>(store: StoreLike<S>) {
     scope.set(StoreContext, store);
+    scope.set(ActionContext, signal);
 
     return (next: (a: unknown) => unknown) => (action: unknown) => {
       const result = next(action); // hit reducers
-      scope.run(function* () {
-        yield* send(action as AnyAction);
-      });
+      send(signal, action as AnyAction);
       return result;
     };
   }
