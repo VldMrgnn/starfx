@@ -1,111 +1,15 @@
-import { Action, Channel, Operation } from "../deps.ts";
-import { createChannel, createContext, spawn } from "../deps.ts";
-import { call, parallel } from "../fx/mod.ts";
+import type { Action, Operation, Signal } from "../deps.ts";
+import { createContext, each, filter, spawn } from "../deps.ts";
+import { call } from "../fx/mod.ts";
 import { ActionPattern, matcher } from "../matcher.ts";
 import type { ActionWPayload, AnyAction } from "../types.ts";
 
 import type { StoreLike } from "./types.ts";
 
-export const ActionContext = createContext<Channel<Action, void>>(
+export const ActionContext = createContext<Signal<Action, void>>(
   "redux:action",
-  createChannel<Action, void>(),
 );
-
 export const StoreContext = createContext<StoreLike>("redux:store");
-
-export function* emit({
-  channel,
-  action,
-}: {
-  channel: Operation<Channel<AnyAction, void>>;
-  action: AnyAction | AnyAction[];
-}) {
-  const { input } = yield* channel;
-  if (Array.isArray(action)) {
-    if (action.length === 0) {
-      return;
-    }
-    yield* parallel(action.map((a) => () => input.send(a)));
-  } else {
-    yield* input.send(action);
-  }
-}
-
-export function* once({
-  channel,
-  pattern,
-}: {
-  channel: Operation<Channel<Action, void>>;
-  pattern: ActionPattern;
-}) {
-  const { output } = yield* channel;
-  const msgList = yield* output;
-  let next = yield* msgList.next();
-  while (!next.done) {
-    const match = matcher(pattern);
-    if (match(next.value)) {
-      return next.value;
-    }
-    next = yield* msgList.next();
-  }
-}
-
-export function* select<S, R>(selectorFn: (s: S) => R) {
-  const store = yield* StoreContext;
-  return selectorFn(store.getState() as S);
-}
-
-export function take<P>(pattern: ActionPattern): Operation<ActionWPayload<P>>;
-export function* take(pattern: ActionPattern): Operation<Action> {
-  const action = yield* once({
-    channel: ActionContext,
-    pattern,
-  });
-  return action as Action;
-}
-
-export function* takeEvery<T>(
-  pattern: ActionPattern,
-  op: (action: Action) => Operation<T>,
-) {
-  return yield* spawn(function* (): Operation<void> {
-    while (true) {
-      const action = yield* take(pattern);
-      if (!action) continue;
-      yield* spawn(() => op(action));
-    }
-  });
-}
-
-export function* takeLatest<T>(
-  pattern: ActionPattern,
-  op: (action: Action) => Operation<T>,
-) {
-  return yield* spawn(function* (): Operation<void> {
-    let lastTask;
-    while (true) {
-      const action = yield* take(pattern);
-      if (lastTask) {
-        yield* lastTask.halt();
-      }
-      if (!action) continue;
-      lastTask = yield* spawn(() => op(action));
-    }
-  });
-}
-
-export function* takeLeading<T>(
-  pattern: ActionPattern,
-  op: (action: Action) => Operation<T>,
-) {
-  return yield* spawn(function* (): Operation<void> {
-    while (true) {
-      const action = yield* take(pattern);
-      if (!action) continue;
-      yield* call(() => op(action));
-    }
-  });
-}
 
 export function* put(action: AnyAction | AnyAction[]) {
   const store = yield* StoreContext;
@@ -115,3 +19,88 @@ export function* put(action: AnyAction | AnyAction[]) {
     store.dispatch(action);
   }
 }
+
+export function emit({
+  signal,
+  action,
+}: {
+  signal: Signal<AnyAction, void>;
+  action: AnyAction | AnyAction[];
+}) {
+  if (Array.isArray(action)) {
+    if (action.length === 0) {
+      return;
+    }
+    action.map((a) => signal.send(a));
+  } else {
+    signal.send(action);
+  }
+}
+
+export function* select<S, R>(selectorFn: (s: S) => R) {
+  const store = yield* StoreContext;
+  return selectorFn(store.getState() as S);
+}
+
+function* createPatternStream(pattern: ActionPattern) {
+  const signal = yield* ActionContext;
+  const match = matcher(pattern);
+  const fd = filter(match)(signal.stream);
+  return fd;
+}
+
+export function take<P>(pattern: ActionPattern): Operation<ActionWPayload<P>>;
+export function* take(pattern: ActionPattern): Operation<Action> {
+  const fd = yield* createPatternStream(pattern);
+  for (const action of yield* each(fd)) {
+    return action;
+  }
+
+  return { type: "take failed, this should not be possible" };
+}
+
+export function* takeEvery<T>(
+  pattern: ActionPattern,
+  op: (action: Action) => Operation<T>,
+) {
+  return yield* spawn(function* (): Operation<void> {
+    const fd = yield* createPatternStream(pattern);
+    for (const action of yield* each(fd)) {
+      yield* spawn(() => op(action));
+      yield* each.next;
+    }
+  });
+}
+
+export function* takeLatest<T>(
+  pattern: ActionPattern,
+  op: (action: Action) => Operation<T>,
+) {
+  return yield* spawn(function* (): Operation<void> {
+    const fd = yield* createPatternStream(pattern);
+    let lastTask;
+
+    for (const action of yield* each(fd)) {
+      if (lastTask) {
+        yield* lastTask.halt();
+      }
+      lastTask = yield* spawn(() => op(action));
+      yield* each.next;
+    }
+  });
+}
+export const latest = takeLatest;
+
+export function* takeLeading<T>(
+  pattern: ActionPattern,
+  op: (action: Action) => Operation<T>,
+) {
+  return yield* spawn(function* (): Operation<void> {
+    const fd = yield* createPatternStream(pattern);
+    for (const action of yield* each(fd)) {
+      yield* call(() => op(action));
+      yield* each.next;
+    }
+  });
+}
+export const leading = takeLeading;

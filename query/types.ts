@@ -56,7 +56,7 @@ export interface FetchJsonCtx<P = any, ApiSuccess = any, ApiError = any>
 export interface ApiCtx<Payload = any, ApiSuccess = any, ApiError = any>
   extends FetchJsonCtx<Payload, ApiSuccess, ApiError> {
   actions: Action[];
-  loader: LoaderPayload<any> | null;
+  loader: Omit<LoaderPayload<any>, "id"> | null;
   cache: boolean;
   cacheData: any;
 }
@@ -64,7 +64,7 @@ export interface ApiCtx<Payload = any, ApiSuccess = any, ApiError = any>
 export type Middleware<Ctx extends PipeCtx = PipeCtx> = (
   ctx: Ctx,
   next: Next,
-) => any;
+) => Operation<any>;
 export type MiddlewareCo<Ctx extends PipeCtx = PipeCtx> =
   | Middleware<Ctx>
   | Middleware<Ctx>[];
@@ -72,12 +72,12 @@ export type MiddlewareCo<Ctx extends PipeCtx = PipeCtx> =
 export type MiddlewareApi<Ctx extends ApiCtx = ApiCtx> = (
   ctx: Ctx,
   next: Next,
-) => any;
+) => Operation<any>;
 export type MiddlewareApiCo<Ctx extends ApiCtx = ApiCtx> =
   | Middleware<Ctx>
   | Middleware<Ctx>[];
 
-export type Next = () => any;
+export type Next = () => Operation<unknown>;
 
 export interface Action {
   type: string;
