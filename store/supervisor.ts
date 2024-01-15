@@ -1,7 +1,7 @@
-import { call, race } from "../fx/mod.ts";
+import { race } from "../fx/mod.ts";
 import { take } from "./fx.ts";
-import { Operation, sleep, spawn, Task } from "../deps.ts";
-import type { ActionWPayload, AnyAction, Operator } from "../types.ts";
+import { call, Callable, Operation, sleep, spawn, Task } from "../deps.ts";
+import type { ActionWPayload, AnyAction } from "../types.ts";
 import type { CreateActionPayload } from "../query/mod.ts";
 
 const MS = 1000;
@@ -44,14 +44,12 @@ export function poll(parentTimer: number = 5 * 1000, cancelType?: string) {
 export function timer(timer: number = 5 * MINUTES) {
   return function* onTimer(
     actionType: string,
-    op: (action: AnyAction) => Operator<unknown>,
+    op: (action: AnyAction) => Callable<unknown>,
   ) {
     const map: { [key: string]: Task<unknown> } = {};
 
     function* activate(action: ActionWPayload<CreateActionPayload>) {
-      yield* call(function* () {
-        return op(action);
-      });
+      yield* call(() => op(action));
       yield* sleep(timer);
       delete map[action.payload.key];
     }

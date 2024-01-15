@@ -1,5 +1,5 @@
 import { describe, expect, it } from "../test.ts";
-import { call, keepAlive } from "../fx/mod.ts";
+import { keepAlive } from "../fx/mod.ts";
 import {
   configureStore,
   createSchema,
@@ -14,6 +14,8 @@ import * as mdw from "./mdw.ts";
 import { createApi } from "./api.ts";
 import { createKey } from "./create-key.ts";
 import type { ApiCtx } from "./types.ts";
+import { call } from "../deps.ts";
+import { useCache } from "./react.ts";
 
 interface User {
   id: string;
@@ -28,7 +30,7 @@ const testStore = () => {
   const schema = createSchema({
     users: slice.table<User>({ empty: emptyUser }),
     loaders: slice.loader(),
-    data: slice.table({ empty: {} }),
+    cache: slice.table({ empty: {} }),
   });
   const store = configureStore(schema);
   return { schema, store };
@@ -238,7 +240,7 @@ it(tests, "createApi with hash key on a large post", async () => {
   const { store, schema } = testStore();
   const query = createApi();
   query.use(mdw.api());
-  query.use(storeMdw(schema.db));
+  query.use(storeMdw.store(schema.db));
   query.use(query.routes());
   query.use(function* fetchApi(ctx, next) {
     const data = {
@@ -297,7 +299,7 @@ it(tests, "createApi with hash key on a large post", async () => {
   });
 
   expect([8, 9].includes(expectedKey.split("|")[1].length)).toBeTruthy();
-  expect(s.data[expectedKey]).toEqual({
+  expect(s.cache[expectedKey]).toEqual({
     "1": { id: "1", name: "test", email: email, largetext: largetext },
   });
 });
@@ -307,7 +309,7 @@ it(tests, "createApi - two identical endpoints", async () => {
   const { store, schema } = testStore();
   const api = createApi();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(mdw.nameParser);
   api.use(api.routes());
 
@@ -338,7 +340,7 @@ it(tests, "createApi - two identical endpoints", async () => {
   expect(actual).toEqual(["/health", "/health"]);
 });
 
-interface TestCtx<P = any, S = any, E = any> extends ApiCtx<P, S, E> {
+interface TestCtx<P = any, S = any> extends ApiCtx<P, S, { message: string }> {
   something: boolean;
 }
 
@@ -461,7 +463,7 @@ it(tests, "should bubble up error", () => {
     }
   });
   api.use(mdw.queryCtx);
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
 
   const fetchUser = api.get(
@@ -479,3 +481,47 @@ it(tests, "should bubble up error", () => {
     "Cannot read properties of undefined (reading 'thisKeyDoesNotExist')",
   );
 });
+
+// this is strictly for testing types
+it(
+  tests,
+  "useCache - derive api success from endpoint",
+  () => {
+    const api = createApi<TestCtx>();
+    api.use(api.routes());
+    api.use(function* (ctx, next) {
+      yield* next();
+      const data = { result: "wow" };
+      ctx.json = { ok: true, data, value: data };
+    });
+
+    const acc: string[] = [];
+    const action1 = api.get<never, { result: string }>(
+      "/users",
+      { supervisor: takeEvery },
+      function* (ctx, next) {
+        ctx.something = false;
+
+        yield* next();
+
+        if (ctx.json.ok) {
+          acc.push(ctx.json.value.result);
+        } else {
+          // EXPECT { message: string }
+          ctx.json.error;
+        }
+      },
+    );
+
+    const store = configureStore({ initialState: { users: {} } });
+    store.run(api.bootup);
+
+    function _App() {
+      const act = action1();
+      act.payload._result;
+      const users = useCache(act);
+      // EXPECT { result: string } | undefined
+      users.data;
+    }
+  },
+);

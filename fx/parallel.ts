@@ -1,15 +1,14 @@
-import type { Channel, Operation, Result } from "../deps.ts";
-import type { Computation, Operator } from "../types.ts";
+import type { Callable, Channel, Operation, Result } from "../deps.ts";
+import type { Computation } from "../types.ts";
 import { createChannel, resource, spawn } from "../deps.ts";
-
-import { safe } from "./call.ts";
+import { safe } from "./safe.ts";
 
 export interface ParallelRet<T> extends Computation<Result<T>[]> {
   sequence: Channel<Result<T>, void>;
   immediate: Channel<Result<T>, void>;
 }
 
-export function parallel<T>(operations: Operator<T>[]) {
+export function parallel<T>(operations: Callable<T>[]) {
   const sequence = createChannel<Result<T>>();
   const immediate = createChannel<Result<T>>();
   const results: Result<T>[] = [];

@@ -1,16 +1,15 @@
 import { assertLike, asserts, describe, it } from "../test.ts";
-import { call } from "../fx/mod.ts";
 import { configureStore, put, takeEvery } from "../store/mod.ts";
-import { sleep as delay } from "../deps.ts";
+import { call, sleep as delay } from "../deps.ts";
 import type { QueryState } from "../types.ts";
 import { createQueryState } from "../action.ts";
 import { sleep } from "../test.ts";
 import { createThunks } from "./thunk.ts";
-import type { Next, PipeCtx } from "./types.ts";
+import type { Next, ThunkCtx } from "./types.ts";
 import { updateStore } from "../store/fx.ts";
 
 // deno-lint-ignore no-explicit-any
-interface RoboCtx<D = Record<string, unknown>, P = any> extends PipeCtx<P> {
+interface RoboCtx<D = Record<string, unknown>, P = any> extends ThunkCtx<P> {
   url: string;
   request: { method: string; body?: Record<string, unknown> };
   response: D;
@@ -335,6 +334,49 @@ it(tests, "run() on endpoint action - should run the effect", () => {
   store.dispatch(action2());
 });
 
+it(
+  tests,
+  "run() on endpoint action with payload - should run the effect",
+  () => {
+    const api = createThunks<RoboCtx>();
+    api.use(api.routes());
+    let acc = "";
+    const action1 = api.create<{ id: string }>(
+      "/users",
+      { supervisor: takeEvery },
+      function* (ctx, next) {
+        yield* next();
+        ctx.request = { method: "expect this" };
+        acc += "a";
+      },
+    );
+    const action2 = api.create(
+      "/users2",
+      { supervisor: takeEvery },
+      function* (_, next) {
+        yield* next();
+        const curCtx = yield* action1.run({ id: "1" });
+        acc += "b";
+        asserts.assert(acc === "ab");
+        assertLike(curCtx, {
+          action: {
+            type: `@@starfx${action1}`,
+            payload: {
+              name: "/users",
+            },
+          },
+          name: "/users",
+          request: { method: "expect this" },
+        });
+      },
+    );
+
+    const store = configureStore({ initialState: {} });
+    store.run(api.bootup);
+    store.dispatch(action2());
+  },
+);
+
 it(tests, "middleware order of execution", async () => {
   let acc = "";
   const api = createThunks();
@@ -409,7 +451,7 @@ it(tests, "retry with actionFn with payload", async () => {
   const api = createThunks();
   api.use(api.routes());
 
-  api.use(function* (ctx: PipeCtx<{ page: number }>, next) {
+  api.use(function* (ctx: ThunkCtx<{ page: number }>, next) {
     yield* next();
     if (ctx.payload.page == 1) {
       yield* put(ctx.actionFn({ page: 2 }));

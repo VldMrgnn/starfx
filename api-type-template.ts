@@ -1,4 +1,4 @@
-function createSagaQueryApi() {
+function createQueryApi() {
   const methods = [
     "get",
     "post",
@@ -21,14 +21,15 @@ ${method}<P>(
 ): CreateActionWithPayload<Omit<Ctx, 'payload'> & Payload<P>, P>;
 ${method}<P extends never, ApiSuccess, ApiError = unknown>(
   req: { supervisor?: Supervisor }
-): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>;
+): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>, ApiSuccess>;
 ${method}<P, ApiSuccess, ApiError = unknown>(req: {
   supervisor?: Supervisor;
 }): CreateActionWithPayload<
   Omit<Ctx, 'payload' | 'json'> &
     Payload<P> &
-    FetchJson<ApiSuccess, ApiError>,
-  P
+    FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
+  P,
+  ApiSuccess
 >;
 
 /**
@@ -45,15 +46,16 @@ ${method}<P, Gtx extends Ctx = Ctx>(
   fn: MiddlewareApiCo<Gtx>,
 ): CreateActionWithPayload<Gtx, P>;
 ${method}<P extends never, ApiSuccess, ApiError = unknown>(
-  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>,
-): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>;
+  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>>,
+): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>, ApiSuccess>;
 ${method}<P, ApiSuccess, ApiError = unknown>(
   fn: MiddlewareApiCo<Ctx>,
 ): CreateActionWithPayload<
   Omit<Ctx, 'payload' | 'json'> &
     Payload<P> &
-    FetchJson<ApiSuccess, ApiError>,
-  P
+    FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
+  P,
+  ApiSuccess
 >;
 
 /**
@@ -74,16 +76,17 @@ ${method}<P, Gtx extends Ctx = Ctx>(
 ): CreateActionWithPayload<Gtx, P>;
 ${method}<P extends never, ApiSuccess, ApiError = unknown>(
   req: { supervisor?: Supervisor },
-  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>,
-): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>;
+  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>>,
+): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>, ApiSuccess>;
 ${method}<P, ApiSuccess, ApiError = unknown>(
   req: { supervisor?: Supervisor },
   fn: MiddlewareApiCo<Ctx>,
 ): CreateActionWithPayload<
   Omit<Ctx, 'payload' | 'json'> &
     Payload<P> &
-    FetchJson<ApiSuccess, ApiError>,
-  P
+    FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
+  P,
+  ApiSuccess
 >;`;
   const uriMethods = methods.map((m) => uriTmpl(m)).join("\n\n");
 
@@ -97,14 +100,15 @@ ${method}<P>(
 ): CreateActionWithPayload<Omit<Ctx, 'payload'> & Payload<P>, P>;
 ${method}<P extends never, ApiSuccess, ApiError = unknown>(
   name: ApiName,
-): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>;
+): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>, ApiSuccess>;
 ${method}<P, ApiSuccess, ApiError = unknown>(
   name: ApiName,
 ): CreateActionWithPayload<
   Omit<Ctx, 'payload' | 'json'> &
     Payload<P> &
-    FetchJson<ApiSuccess, ApiError>,
-  P
+    FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
+  P,
+  ApiSuccess
 >;
 
 /**
@@ -122,15 +126,16 @@ ${method}<P, Gtx extends Ctx = Ctx>(
 ${method}<P extends never, ApiSuccess, ApiError = unknown>(
   name: ApiName,
   req: { supervisor?: Supervisor }
-): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>;
+): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>, ApiSuccess>;
 ${method}<P, ApiSuccess, ApiError = unknown>(
   name: ApiName,
   req: { supervisor?: Supervisor },
 ): CreateActionWithPayload<
   Omit<Ctx, 'payload' | 'json'> &
     Payload<P> &
-    FetchJson<ApiSuccess, ApiError>,
-  P
+    FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
+  P,
+  ApiSuccess
 >;
 
 /**
@@ -151,20 +156,21 @@ ${method}<P, Gtx extends Ctx = Ctx>(
 ): CreateActionWithPayload<Gtx, P>;
 ${method}<P extends never, ApiSuccess, ApiError = unknown>(
   name: ApiName,
-  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>,
-): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>;
+  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>>,
+): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>, ApiSuccess>;
 ${method}<P, ApiSuccess, ApiError = unknown>(
   name: ApiName,
   fn: MiddlewareApiCo<
     Omit<Ctx, 'payload' | 'json'> &
       Payload<P> &
-      FetchJson<ApiSuccess, ApiError>
+      FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
   >,
 ): CreateActionWithPayload<
   Omit<Ctx, 'payload' | 'json'> &
     Payload<P> &
-    FetchJson<ApiSuccess, ApiError>,
-  P
+    FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
+  P,
+  ApiSuccess
 >;
 
 /**
@@ -193,21 +199,22 @@ ${method}<P, Gtx extends Ctx = Ctx>(
 ${method}<P extends never, ApiSuccess, ApiError = unknown>(
   name: ApiName,
   req: { supervisor?: Supervisor },
-  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>,
-): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError>>;
+  fn: MiddlewareApiCo<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>>,
+): CreateAction<Omit<Ctx, 'json'> & FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>, ApiSuccess>;
 ${method}<P, ApiSuccess, ApiError = unknown>(
   name: ApiName,
   req: { supervisor?: Supervisor },
   fn: MiddlewareApiCo<
     Omit<Ctx, 'payload' | 'json'> &
       Payload<P> &
-      FetchJson<ApiSuccess, ApiError>
+      FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>
   >,
 ): CreateActionWithPayload<
   Omit<Ctx, 'payload' | 'json'> &
     Payload<P> &
-    FetchJson<ApiSuccess, ApiError>,
-  P
+    FetchJson<ApiSuccess, ApiError extends unknown ? Ctx["_error"] : ApiError>,
+  P,
+  ApiSuccess
 >;`;
   const regMethods = methods.map((m) => methodTmpl(m)).join("\n\n");
 
@@ -215,7 +222,7 @@ ${method}<P, ApiSuccess, ApiError = unknown>(
 * This is an auto-generated file, do not edit directly!
 * Run "yarn template" to generate this file.
 */
-import type { SagaApi } from "./thunk.ts";
+import type { ThunksApi } from "./thunk.ts";
 import type {
   ApiCtx,
   CreateAction,
@@ -230,7 +237,7 @@ import type { Operation } from "../deps.ts";
 
 export type ApiName = string | string[];
 
-export interface SagaQueryApi<Ctx extends ApiCtx = ApiCtx> extends SagaApi<Ctx> {
+export interface QueryApi<Ctx extends ApiCtx = ApiCtx> extends ThunksApi<Ctx> {
   request: (
     r: Partial<RequestInit>,
   ) => (ctx: Ctx, next: Next) => Operation<unknown>;
@@ -254,4 +261,4 @@ async function createTemplateFile(tmpl: string) {
   }
 }
 
-createTemplateFile(createSagaQueryApi()).then(console.log).catch(console.error);
+createTemplateFile(createQueryApi()).then(console.log).catch(console.error);

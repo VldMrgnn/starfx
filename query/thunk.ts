@@ -1,10 +1,8 @@
 import { compose } from "../compose.ts";
-import type { Operator, Payload } from "../types.ts";
+import type { Payload } from "../types.ts";
 import { keepAlive } from "../mod.ts";
-
 // TODO: remove store deps
 import { takeEvery } from "../redux/mod.ts";
-
 import { isFn, isObject } from "./util.ts";
 import { createKey } from "./create-key.ts";
 import type {
@@ -15,16 +13,17 @@ import type {
   Middleware,
   MiddlewareCo,
   Next,
-  PipeCtx,
   Supervisor,
+  ThunkCtx,
 } from "./types.ts";
 import { API_ACTION_PREFIX } from "../action.ts";
-import { Ok } from "../deps.ts";
+import { Callable, Ok, Operation } from "../deps.ts";
 
-export interface SagaApi<Ctx extends PipeCtx> {
+export interface ThunksApi<Ctx extends ThunkCtx> {
   use: (fn: Middleware<Ctx>) => void;
   routes: () => Middleware<Ctx>;
-  bootup: Operator<void>;
+  bootup: Callable<void>;
+  reset: () => void;
 
   /**
    * Name only
@@ -119,16 +118,17 @@ export interface SagaApi<Ctx extends PipeCtx> {
  * // end
  * ```
  */
-export function createThunks<Ctx extends PipeCtx = PipeCtx<any>>(
+export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   {
     supervisor = takeEvery,
   }: {
     supervisor?: Supervisor;
   } = { supervisor: takeEvery },
-): SagaApi<Ctx> {
+): ThunksApi<Ctx> {
   const middleware: Middleware<Ctx>[] = [];
-  const visors: { [key: string]: Operator<unknown> } = {};
+  const visors: { [key: string]: Callable<unknown> } = {};
   const middlewareMap: { [key: string]: Middleware<Ctx> } = {};
+  let dynamicMiddlewareMap: { [key: string]: Middleware<Ctx> } = {};
   const actionMap: {
     [key: string]: CreateActionWithPayload<Ctx, any>;
   } = {};
@@ -140,7 +140,9 @@ export function createThunks<Ctx extends PipeCtx = PipeCtx<any>>(
   const createType = (post: string) =>
     `${API_ACTION_PREFIX}${post.startsWith("/") ? "" : "/"}${post}`;
 
-  function* onApi<P extends CreateActionPayload>(action: ActionWithPayload<P>) {
+  function* onApi<P extends CreateActionPayload>(
+    action: ActionWithPayload<P>,
+  ): Operation<Ctx> {
     const { name, key, options } = action.payload;
     const actionFn = actionMap[name];
     const ctx = {
@@ -207,8 +209,23 @@ export function createThunks<Ctx extends PipeCtx = PipeCtx<any>>(
       const key = createKey(name, options);
       return action({ name, key, options });
     };
-    actionFn.run = onApi;
+    actionFn.run = (action?: unknown): Operation<Ctx> => {
+      if (action && Object.hasOwn(action, "type")) {
+        return onApi(action as ActionWithPayload<CreateActionPayload>);
+      }
+      return onApi(actionFn(action));
+    };
+    actionFn.use = (fn: Middleware<Ctx>) => {
+      const cur = middlewareMap[name];
+      if (cur) {
+        dynamicMiddlewareMap[name] = compose([cur, fn]);
+      } else {
+        dynamicMiddlewareMap[name] = fn;
+      }
+    };
     actionFn.toString = () => name;
+    actionFn._success = {};
+    actionFn._error = {};
     actionMap[name] = actionFn;
 
     return actionFn;
@@ -220,7 +237,7 @@ export function createThunks<Ctx extends PipeCtx = PipeCtx<any>>(
 
   function routes() {
     function* router(ctx: Ctx, next: Next) {
-      const match = middlewareMap[ctx.name];
+      const match = dynamicMiddlewareMap[ctx.name] || middlewareMap[ctx.name];
       if (!match) {
         yield* next();
         return;
@@ -233,6 +250,10 @@ export function createThunks<Ctx extends PipeCtx = PipeCtx<any>>(
     return router;
   }
 
+  function resetMdw() {
+    dynamicMiddlewareMap = {};
+  }
+
   return {
     use: (fn: Middleware<Ctx>) => {
       middleware.push(fn);
@@ -240,5 +261,6 @@ export function createThunks<Ctx extends PipeCtx = PipeCtx<any>>(
     create,
     routes,
     bootup,
+    reset: resetMdw,
   };
 }

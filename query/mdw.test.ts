@@ -1,9 +1,8 @@
 import { assertLike, asserts, describe, expect, it } from "../test.ts";
 import { createApi, createKey, mdw } from "../query/mod.ts";
-import type { ApiCtx, Next, PipeCtx } from "../query/mod.ts";
+import type { ApiCtx, Next, ThunkCtx } from "../query/mod.ts";
 import { createQueryState } from "../action.ts";
 import { sleep } from "../test.ts";
-
 import {
   configureStore,
   createSchema,
@@ -34,7 +33,7 @@ const testStore = () => {
   const schema = createSchema({
     users: slice.table<User>({ empty: emptyUser }),
     loaders: slice.loader(),
-    data: slice.table({ empty: {} }),
+    cache: slice.table({ empty: {} }),
   });
   const store = configureStore(schema);
   return { schema, store };
@@ -110,7 +109,7 @@ it(tests, "with loader", () => {
   const { schema, store } = testStore();
   const api = createApi<ApiCtx>();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(function* fetchApi(ctx, next) {
     ctx.response = new Response(jsonBlob(mockUser), { status: 200 });
@@ -153,7 +152,7 @@ it(tests, "with item loader", () => {
   const { store, schema } = testStore();
   const api = createApi<ApiCtx>();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(function* fetchApi(ctx, next) {
     ctx.response = new Response(jsonBlob(mockUser), { status: 200 });
@@ -250,7 +249,7 @@ it(tests, "simpleCache", () => {
   const { store, schema } = testStore();
   const api = createApi<ApiCtx>();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(function* fetchApi(ctx, next) {
     const data = { users: [mockUser] };
@@ -280,7 +279,7 @@ it(tests, "overriding default loader behavior", () => {
   const { store, schema } = testStore();
   const api = createApi<ApiCtx>();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(function* fetchApi(ctx, next) {
     const data = { users: [mockUser] };
@@ -337,7 +336,7 @@ it(tests, "mdw.api() - error handler", () => {
   const { schema, store } = testStore();
   const query = createApi<ApiCtx>();
   query.use(mdw.api());
-  query.use(storeMdw(schema.db));
+  query.use(storeMdw.store(schema.db));
   query.use(query.routes());
   query.use(function* () {
     throw new Error("something happened");
@@ -353,7 +352,7 @@ it(tests, "createApi with own key", async () => {
   const { schema, store } = testStore();
   const query = createApi();
   query.use(mdw.api());
-  query.use(storeMdw(schema.db));
+  query.use(storeMdw.store(schema.db));
   query.use(query.routes());
   query.use(mdw.customKey);
   query.use(function* fetchApi(ctx, next) {
@@ -410,7 +409,7 @@ it(tests, "createApi with own key", async () => {
     : createKey("/users [POST]", { email: newUEmail });
 
   const s = store.getState();
-  asserts.assertEquals(schema.db.data.selectById(s, { id: expectedKey }), {
+  asserts.assertEquals(schema.db.cache.selectById(s, { id: expectedKey }), {
     "1": { id: "1", name: "test", email: newUEmail },
   });
 
@@ -424,7 +423,7 @@ it(tests, "createApi with custom key but no payload", async () => {
   const { store, schema } = testStore();
   const query = createApi();
   query.use(mdw.api());
-  query.use(storeMdw(schema.db));
+  query.use(storeMdw.store(schema.db));
   query.use(query.routes());
   query.use(mdw.customKey);
   query.use(function* fetchApi(ctx, next) {
@@ -480,7 +479,7 @@ it(tests, "createApi with custom key but no payload", async () => {
     : createKey("/users [GET]", null);
 
   const s = store.getState();
-  asserts.assertEquals(schema.db.data.selectById(s, { id: expectedKey }), {
+  asserts.assertEquals(schema.db.cache.selectById(s, { id: expectedKey }), {
     "1": mockUser,
   });
 
@@ -493,7 +492,7 @@ it(tests, "createApi with custom key but no payload", async () => {
 it(tests, "errorHandler", () => {
   let a = 0;
   const query = createApi<ApiCtx>();
-  query.use(function* errorHandler<Ctx extends PipeCtx = PipeCtx>(
+  query.use(function* errorHandler<Ctx extends ThunkCtx = ThunkCtx>(
     ctx: Ctx,
     next: Next,
   ) {
@@ -545,4 +544,43 @@ it(tests, "errorHandler", () => {
     users: {},
   });
   expect(a).toEqual(2);
+});
+
+it(tests, "stub predicate", async () => {
+  let actual = null;
+  const api = createApi();
+  api.use(function* (ctx, next) {
+    ctx.stub = true;
+    yield* next();
+  });
+  api.use(mdw.api());
+  api.use(api.routes());
+  api.use(mdw.fetch({ baseUrl: "http://nowhere.com" }));
+
+  const stub = mdw.predicate((ctx) => ctx.stub === true);
+
+  const fetchUsers = api.get("/users", { supervisor: takeEvery }, [
+    function* (ctx, next) {
+      yield* next();
+      actual = ctx.json;
+    },
+    stub(function* (ctx, next) {
+      ctx.response = new Response(JSON.stringify({ frodo: "shire" }));
+      yield* next();
+    }),
+  ]);
+
+  const store = configureStore({
+    initialState: {
+      ...createQueryState(),
+    },
+  });
+  store.run(api.bootup);
+  store.dispatch(fetchUsers());
+  await sleep(150);
+  expect(actual).toEqual({
+    ok: true,
+    value: { frodo: "shire" },
+    data: { frodo: "shire" },
+  });
 });

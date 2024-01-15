@@ -23,7 +23,7 @@ const delay = (n = 200) =>
 const testStore = () => {
   const schema = createSchema({
     loaders: slice.loader(),
-    data: slice.table({ empty: {} }),
+    cache: slice.table({ empty: {} }),
   });
   const store = configureStore(schema);
   return { schema, store };
@@ -42,7 +42,7 @@ it(
     const { store, schema } = testStore();
     const api = createApi();
     api.use(mdw.api());
-    api.use(storeMdw(schema.db));
+    api.use(storeMdw.store(schema.db));
     api.use(api.routes());
     api.use(fetchMdw.headers);
     api.use(mdw.fetch({ baseUrl }));
@@ -68,7 +68,7 @@ it(
     await delay();
 
     const state = store.getState();
-    expect(state.data[action.payload.key]).toEqual(mockUser);
+    expect(state.cache[action.payload.key]).toEqual(mockUser);
 
     expect(actual).toEqual([{
       url: `${baseUrl}/users`,
@@ -82,7 +82,7 @@ it(
 
 it(
   tests,
-  "fetch - should be able to fetch a resource and parse as text instead of json",
+  "should be able to fetch a resource and parse as text instead of json",
   async () => {
     mock(`GET@/users`, () => {
       return new Response("this is some text");
@@ -91,7 +91,7 @@ it(
     const { store, schema } = testStore();
     const api = createApi();
     api.use(mdw.api());
-    api.use(storeMdw(schema.db));
+    api.use(storeMdw.store(schema.db));
     api.use(api.routes());
     api.use(mdw.fetch({ baseUrl }));
 
@@ -118,7 +118,7 @@ it(
   },
 );
 
-it(tests, "fetch - error handling", async () => {
+it(tests, "error handling", async () => {
   const errMsg = { message: "something happened" };
   mock(`GET@/users`, () => {
     return new Response(JSON.stringify(errMsg), { status: 500 });
@@ -127,7 +127,7 @@ it(tests, "fetch - error handling", async () => {
   const { schema, store } = testStore();
   const api = createApi();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(mdw.fetch({ baseUrl }));
 
@@ -151,11 +151,11 @@ it(tests, "fetch - error handling", async () => {
   await delay();
 
   const state = store.getState();
-  expect(state.data[action.payload.key]).toEqual(errMsg);
+  expect(state.cache[action.payload.key]).toEqual(errMsg);
   expect(actual).toEqual({ ok: false, data: errMsg, error: errMsg });
 });
 
-it(tests, "fetch - status 204", async () => {
+it(tests, "status 204", async () => {
   mock(`GET@/users`, () => {
     return new Response(null, { status: 204 });
   });
@@ -163,7 +163,7 @@ it(tests, "fetch - status 204", async () => {
   const { schema, store } = testStore();
   const api = createApi();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(function* (ctx, next) {
     const url = ctx.req().url;
@@ -191,11 +191,11 @@ it(tests, "fetch - status 204", async () => {
   await delay();
 
   const state = store.getState();
-  expect(state.data[action.payload.key]).toEqual({});
+  expect(state.cache[action.payload.key]).toEqual({});
   expect(actual).toEqual({ ok: true, data: {}, value: {} });
 });
 
-it(tests, "fetch - malformed json", async () => {
+it(tests, "malformed json", async () => {
   mock(`GET@/users`, () => {
     return new Response("not json", { status: 200 });
   });
@@ -203,7 +203,7 @@ it(tests, "fetch - malformed json", async () => {
   const { schema, store } = testStore();
   const api = createApi();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(function* (ctx, next) {
     const url = ctx.req().url;
@@ -240,7 +240,7 @@ it(tests, "fetch - malformed json", async () => {
   });
 });
 
-it(tests, "fetch - POST", async () => {
+it(tests, "POST", async () => {
   mock(`POST@/users`, () => {
     return new Response(JSON.stringify(mockUser));
   });
@@ -248,7 +248,7 @@ it(tests, "fetch - POST", async () => {
   const { schema, store } = testStore();
   const api = createApi();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(fetchMdw.headers);
   api.use(mdw.fetch({ baseUrl }));
@@ -283,7 +283,7 @@ it(tests, "fetch - POST", async () => {
   await delay();
 });
 
-it(tests, "fetch - POST multiple endpoints with same uri", async () => {
+it(tests, "POST multiple endpoints with same uri", async () => {
   mock(`POST@/users/1/something`, () => {
     return new Response(JSON.stringify(mockUser));
   });
@@ -291,7 +291,7 @@ it(tests, "fetch - POST multiple endpoints with same uri", async () => {
   const { store, schema } = testStore();
   const api = createApi();
   api.use(mdw.api());
-  api.use(storeMdw(schema.db));
+  api.use(storeMdw.store(schema.db));
   api.use(api.routes());
   api.use(fetchMdw.headers);
   api.use(mdw.fetch({ baseUrl }));
@@ -348,12 +348,12 @@ it(tests, "fetch - POST multiple endpoints with same uri", async () => {
 
 it(
   tests,
-  "fetch - slug in url but payload has empty string for slug value",
+  "slug in url but payload has empty string for slug value",
   async () => {
     const { store, schema } = testStore();
     const api = createApi();
     api.use(mdw.api());
-    api.use(storeMdw(schema.db));
+    api.use(storeMdw.store(schema.db));
     api.use(api.routes());
     api.use(mdw.fetch({ baseUrl }));
 
@@ -386,7 +386,7 @@ it(
 
 it(
   tests,
-  "fetch retry - with success - should keep retrying fetch request",
+  "with success - should keep retrying fetch request",
   async () => {
     let counter = 0;
     mock(`GET@/users`, () => {
@@ -402,7 +402,7 @@ it(
     const { schema, store } = testStore();
     const api = createApi();
     api.use(mdw.api());
-    api.use(storeMdw(schema.db));
+    api.use(storeMdw.store(schema.db));
     api.use(api.routes());
     api.use(mdw.fetch({ baseUrl }));
 
@@ -429,7 +429,7 @@ it(
     await delay();
 
     const state = store.getState();
-    expect(state.data[action.payload.key]).toEqual(mockUser);
+    expect(state.cache[action.payload.key]).toEqual(mockUser);
     expect(actual).toEqual({ ok: true, data: mockUser, value: mockUser });
   },
 );
@@ -448,7 +448,7 @@ it(
     let actual = null;
     const api = createApi();
     api.use(mdw.api());
-    api.use(storeMdw(schema.db));
+    api.use(storeMdw.store(schema.db));
     api.use(api.routes());
     api.use(mdw.fetch({ baseUrl }));
 
@@ -470,3 +470,64 @@ it(
     expect(actual).toEqual({ ok: false, data, error: data });
   },
 );
+
+it(
+  tests,
+  "should *not* make http request and instead simply mock response",
+  async () => {
+    const { schema, store } = testStore();
+    let actual = null;
+    const api = createApi();
+    api.use(mdw.api());
+    api.use(storeMdw.store(schema.db));
+    api.use(api.routes());
+    api.use(mdw.fetch({ baseUrl }));
+
+    const fetchUsers = api.get("/users", { supervisor: takeEvery }, [
+      function* (ctx, next) {
+        yield* next();
+        actual = ctx.json;
+      },
+      mdw.response(new Response(JSON.stringify(mockUser))),
+    ]);
+
+    store.run(api.bootup);
+    store.dispatch(fetchUsers());
+
+    await delay();
+    expect(actual).toEqual({ ok: true, data: mockUser, value: mockUser });
+  },
+);
+
+it(tests, "should use dynamic mdw to mock response", async () => {
+  const { schema, store } = testStore();
+  let actual = null;
+  const api = createApi();
+  api.use(mdw.api());
+  api.use(storeMdw.store(schema.db));
+  api.use(api.routes());
+  api.use(mdw.fetch({ baseUrl }));
+
+  const fetchUsers = api.get("/users", { supervisor: takeEvery }, [
+    function* (ctx, next) {
+      yield* next();
+      actual = ctx.json;
+    },
+    mdw.response(new Response(JSON.stringify(mockUser))),
+  ]);
+
+  store.run(api.bootup);
+
+  // override default response with dynamic mdw
+  const dynamicUser = { id: "2", email: "dynamic@starfx.com" };
+  fetchUsers.use(mdw.response(new Response(JSON.stringify(dynamicUser))));
+  store.dispatch(fetchUsers());
+  await delay();
+  expect(actual).toEqual({ ok: true, data: dynamicUser, value: dynamicUser });
+
+  // reset dynamic mdw and try again
+  api.reset();
+  store.dispatch(fetchUsers());
+  await delay();
+  expect(actual).toEqual({ ok: true, data: mockUser, value: mockUser });
+});

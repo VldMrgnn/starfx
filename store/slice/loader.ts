@@ -85,10 +85,11 @@ function loaderSelectors<
     { ids }: PropIds,
   ): LoaderState<M>[] =>
     ids.map((id) => defaultLoader<M>(data[id])).filter(excludesFalse);
-  const selectById = (state: S, { id }: PropId): LoaderState<M> => {
-    const data = selectTable(state);
-    return defaultLoader<M>(findById(data, { id })) || empty;
-  };
+  const selectById = createSelector(
+    selectTable,
+    (_: S, p: PropId) => p.id,
+    (loaders, id): LoaderState<M> => findById(loaders, { id }),
+  );
 
   return {
     findById,
@@ -101,8 +102,8 @@ function loaderSelectors<
     selectById,
     selectByIds: createSelector(
       selectTable,
-      (_: S, p: PropIds) => p,
-      findByIds,
+      (_: S, p: PropIds) => p.ids,
+      (loaders, ids) => findByIds(loaders, { ids }),
     ),
   };
 }
@@ -142,32 +143,32 @@ export const createLoader = <
     initialState,
     start: (e) => (s) => {
       const table = selectors.selectTable(s);
-      const loader = selectors.selectById(s, { id: e.id });
-      table[e.id] = {
+      const loader = table[e.id];
+      table[e.id] = defaultLoaderItem({
         ...loader,
         ...e,
         status: "loading",
         lastRun: ts(),
-      };
+      });
     },
     success: (e) => (s) => {
       const table = selectors.selectTable(s);
-      const loader = selectors.selectById(s, { id: e.id });
-      table[e.id] = {
+      const loader = table[e.id];
+      table[e.id] = defaultLoaderItem({
         ...loader,
         ...e,
         status: "success",
         lastSuccess: ts(),
-      };
+      });
     },
     error: (e) => (s) => {
       const table = selectors.selectTable(s);
-      const loader = selectors.selectById(s, { id: e.id });
-      table[e.id] = {
+      const loader = table[e.id];
+      table[e.id] = defaultLoaderItem({
         ...loader,
         ...e,
         status: "error",
-      };
+      });
     },
     reset: () => (s) => {
       // deno-lint-ignore no-explicit-any

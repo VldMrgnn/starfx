@@ -1,6 +1,5 @@
-import { Operation, Result, sleep } from "../deps.ts";
-import type { Operator } from "../types.ts";
-import { safe } from "./call.ts";
+import { Callable, Operation, Result, sleep } from "../deps.ts";
+import { safe } from "./safe.ts";
 import { parallel } from "./parallel.ts";
 import { log } from "../log.ts";
 
@@ -18,7 +17,7 @@ export function superviseBackoff(attempt: number, max = 10): number {
  * wait longer until attempting to restart and eventually give up.
  */
 export function supervise<T>(
-  op: Operator<T>,
+  op: Callable<T>,
   backoff: (attemp: number) => number = superviseBackoff,
 ) {
   return function* () {
@@ -32,12 +31,12 @@ export function supervise<T>(
         attempt = 0;
       } else {
         yield* log({
-          type: "fx:supervise",
+          type: "error:supervise",
           payload: {
             message:
               `Exception caught, waiting ${waitFor}ms before restarting operation`,
-            op,
             error: res.error,
+            op,
           },
         });
         yield* sleep(waitFor);
@@ -50,7 +49,7 @@ export function supervise<T>(
 }
 
 export function* keepAlive(
-  ops: Operator<unknown>[],
+  ops: Callable<unknown>[],
   backoff?: (attempt: number) => number,
 ): Operation<Result<void>[]> {
   const group = yield* parallel(

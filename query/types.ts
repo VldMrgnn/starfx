@@ -3,19 +3,19 @@ import type { LoaderItemState, LoaderPayload, Payload } from "../types.ts";
 
 type IfAny<T, Y, N> = 0 extends 1 & T ? Y : N;
 
-export interface PipeCtx<P = any> extends Payload<P> {
+export interface ThunkCtx<P = any> extends Payload<P> {
   name: string;
   key: string;
   action: ActionWithPayload<CreateActionPayload<P>>;
   actionFn: IfAny<
     P,
-    CreateAction<PipeCtx>,
-    CreateActionWithPayload<PipeCtx<P>, P>
+    CreateAction<ThunkCtx>,
+    CreateActionWithPayload<ThunkCtx<P>, P>
   >;
   result: Result<void>;
 }
 
-export interface LoaderCtx<P = unknown> extends PipeCtx<P> {
+export interface LoaderCtx<P = unknown> extends ThunkCtx<P> {
   loader: Partial<LoaderItemState> | null;
 }
 
@@ -43,7 +43,7 @@ export type RequiredApiRequest = {
   headers: HeadersInit;
 } & Partial<RequestInit>;
 
-export interface FetchCtx<P = any> extends PipeCtx<P> {
+export interface FetchCtx<P = any> extends ThunkCtx<P> {
   request: ApiRequest | null;
   req: (r?: ApiRequest) => RequiredApiRequest;
   response: Response | null;
@@ -61,19 +61,25 @@ export interface ApiCtx<Payload = any, ApiSuccess = any, ApiError = any>
   extends FetchJsonCtx<Payload, ApiSuccess, ApiError> {
   actions: Action[];
   loader: Omit<LoaderPayload<any>, "id"> | null;
+  // should we cache ctx.json?
   cache: boolean;
+  // should we use mdw.stub?
+  stub: boolean;
+  // previously cached data
   cacheData: any;
+  _success: ApiSuccess;
+  _error: ApiError;
 }
 
-export interface PerfCtx<P = unknown> extends PipeCtx<P> {
+export interface PerfCtx<P = unknown> extends ThunkCtx<P> {
   performance: number;
 }
 
-export type Middleware<Ctx extends PipeCtx = PipeCtx> = (
+export type Middleware<Ctx extends ThunkCtx = ThunkCtx> = (
   ctx: Ctx,
   next: Next,
 ) => Operation<any>;
-export type MiddlewareCo<Ctx extends PipeCtx = PipeCtx> =
+export type MiddlewareCo<Ctx extends ThunkCtx = ThunkCtx> =
   | Middleware<Ctx>
   | Middleware<Ctx>[];
 
@@ -95,32 +101,47 @@ export interface ActionWithPayload<P> extends Action {
   payload: P;
 }
 
-export interface CreateActionPayload<P = any> {
+export interface CreateActionPayload<P = any, ApiSuccess = any> {
   name: string;
   key: string;
   options: P;
+  _result: ApiSuccess;
 }
 
-export type CreateActionFn = () => ActionWithPayload<
-  CreateActionPayload<Record<string | number | symbol, never>>
+export type CreateActionFn<ApiSuccess = any> = () => ActionWithPayload<
+  CreateActionPayload<Record<string | number | symbol, never>, ApiSuccess>
 >;
 
-export interface CreateAction<Ctx> extends CreateActionFn {
+export interface CreateAction<
+  Ctx extends ThunkCtx = ThunkCtx,
+  ApiSuccess = any,
+> extends CreateActionFn<ApiSuccess> {
   run: (
-    p: ActionWithPayload<
-      CreateActionPayload<Record<string | number | symbol, never>>
+    p?: ActionWithPayload<
+      CreateActionPayload<Record<string | number | symbol, never>, ApiSuccess>
     >,
   ) => Operation<Ctx>;
+  use: (mdw: Middleware<Ctx>) => void;
 }
 
-export type CreateActionFnWithPayload<P = any> = (
+export type CreateActionFnWithPayload<P = any, ApiSuccess = any> = (
   p: P,
-) => ActionWithPayload<CreateActionPayload<P>>;
+) => ActionWithPayload<CreateActionPayload<P, ApiSuccess>>;
 
-export interface CreateActionWithPayload<Ctx, P>
-  extends CreateActionFnWithPayload<P> {
-  run: (a: ActionWithPayload<CreateActionPayload<P>>) => Operation<Ctx>;
+export interface CreateActionWithPayload<
+  Ctx extends ThunkCtx,
+  P,
+  ApiSuccess = any,
+> extends CreateActionFnWithPayload<P, ApiSuccess> {
+  run: (
+    a: ActionWithPayload<CreateActionPayload<P, ApiSuccess>> | P,
+  ) => Operation<Ctx>;
+  use: (mdw: Middleware<Ctx>) => void;
 }
+
+export type ThunkAction<P = any, ApiSuccess = any> = ActionWithPayload<
+  CreateActionPayload<P, ApiSuccess>
+>;
 
 export type Supervisor<T = unknown> = (
   pattern: string,

@@ -6,14 +6,15 @@ export * from "./action.ts";
 export * from "./log.ts";
 export {
   action,
+  call,
   createChannel,
   createContext,
   createQueue,
   createScope,
   createSignal,
   each,
+  ensure,
   Err,
-  getframe,
   Ok,
   resource,
   run,
@@ -22,6 +23,7 @@ export {
   useAbortSignal,
 } from "./deps.ts";
 export type {
+  Callable,
   Channel,
   Instruction,
   Operation,

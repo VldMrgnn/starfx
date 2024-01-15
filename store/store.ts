@@ -1,4 +1,5 @@
 import {
+  Callable,
   createScope,
   createSignal,
   enablePatches,
@@ -9,12 +10,12 @@ import {
   Task,
 } from "../deps.ts";
 import { BaseMiddleware, compose } from "../compose.ts";
-import type { AnyAction, AnyState, Operator } from "../types.ts";
+import type { AnyAction, AnyState } from "../types.ts";
 import { safe } from "../fx/mod.ts";
 import { Next } from "../query/types.ts";
 import type { FxStore, Listener, StoreUpdater, UpdaterCtx } from "./types.ts";
 import { ActionContext, StoreContext, StoreUpdateContext } from "./context.ts";
-import { put } from "./fx.ts";
+import { emit } from "./fx.ts";
 import { log } from "../log.ts";
 
 const stubMsg = "This is merely a stub, not implemented";
@@ -34,7 +35,7 @@ function observable() {
 export interface CreateStore<S extends AnyState> {
   scope?: Scope;
   initialState: S;
-  middleware?: BaseMiddleware[];
+  middleware?: BaseMiddleware<UpdaterCtx<S>>[];
 }
 
 export function createStore<S extends AnyState>({
@@ -53,6 +54,9 @@ export function createStore<S extends AnyState>({
   let state = initialState;
   const listeners = new Set<Listener>();
   enablePatches();
+
+  const signal = createSignal<AnyAction, void>();
+  scope.set(ActionContext, signal);
 
   function getScope() {
     return scope;
@@ -89,6 +93,14 @@ export function createStore<S extends AnyState>({
     yield* next();
   }
 
+  function* logMdw(ctx: UpdaterCtx<S>, next: Next) {
+    yield* log({
+      type: "store",
+      payload: { ctx },
+    });
+    yield* next();
+  }
+
   function* notifyChannelMdw(_: UpdaterCtx<S>, next: Next) {
     const chan = yield* StoreUpdateContext;
     yield* chan.send();
@@ -102,8 +114,9 @@ export function createStore<S extends AnyState>({
 
   function createUpdater() {
     const fn = compose<UpdaterCtx<S>>([
-      ...middleware,
       updateMdw,
+      ...middleware,
+      logMdw,
       notifyChannelMdw,
       notifyListenersMdw,
     ]);
@@ -118,41 +131,53 @@ export function createStore<S extends AnyState>({
       patches: [],
       result: Ok(undefined),
     };
+
     yield* mdw(ctx);
-    // TODO: dev mode only?
+
     if (!ctx.result.ok) {
       yield* log({
-        type: "store:update",
+        type: "error:store",
         payload: {
           message: `Exception raised when calling store updaters`,
           error: ctx.result.error,
         },
       });
     }
+
     return ctx;
   }
 
-  // deno-lint-ignore no-explicit-any
-  function dispatch(action: AnyAction | AnyAction[]): Task<any> {
-    return scope.run(function* () {
-      yield* put(action);
-    });
+  function dispatch(action: AnyAction | AnyAction[]) {
+    emit({ signal, action });
   }
 
-  function run<T>(op: Operator<T>): Task<Result<T>> {
-    return scope.run(function* () {
-      return yield* safe(op);
-    });
+  function run<T>(op: Callable<T>): Task<Result<T>> {
+    return scope.run(() => safe(op));
   }
 
   function getInitialState() {
     return initialState;
   }
+
+  function* reset(ignoreList: (keyof S)[] = []) {
+    return yield* update((s) => {
+      const keep = ignoreList.reduce<S>((acc, key) => {
+        acc[key] = s[key];
+        return acc;
+      }, { ...initialState });
+
+      Object.keys(s).forEach((key: keyof S) => {
+        s[key] = keep[key];
+      });
+    });
+  }
+
   return {
     getScope,
     getState,
     subscribe,
     update,
+    reset,
     run,
     // instead of actions relating to store mutation, they
     // refer to pieces of business logic -- that can also mutate state
@@ -173,9 +198,7 @@ export function configureStore<S extends AnyState>(
   props: CreateStore<S>,
 ): FxStore<S> {
   const store = createStore<S>(props);
-  const signal = createSignal<AnyAction, void>();
   // deno-lint-ignore no-explicit-any
   store.getScope().set(StoreContext, store as any);
-  store.getScope().set(ActionContext, signal);
   return store;
 }

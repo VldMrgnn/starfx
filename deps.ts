@@ -1,4 +1,5 @@
 export type {
+  Callable,
   Channel,
   Instruction,
   Operation,
@@ -12,7 +13,7 @@ export type {
   Stream,
   Subscription,
   Task,
-} from "https://deno.land/x/effection@3.0.0-beta.2/mod.ts";
+} from "https://deno.land/x/effection@3.0.0-beta.3/mod.ts";
 export {
   action,
   call,
@@ -22,10 +23,8 @@ export {
   createScope,
   createSignal,
   each,
+  ensure,
   Err,
-  expect,
-  filter,
-  getframe,
   Ok,
   resource,
   run,
@@ -34,7 +33,7 @@ export {
   spawn,
   suspend,
   useAbortSignal,
-} from "https://deno.land/x/effection@3.0.0-beta.2/mod.ts";
+} from "https://deno.land/x/effection@3.0.0-beta.3/mod.ts";
 
 import React from "https://esm.sh/react@18.2.0?pin=v122";
 export { React };
@@ -42,6 +41,9 @@ export {
   Provider,
   useDispatch,
   useSelector,
+} from "https://esm.sh/react-redux@8.0.5?pin=v122";
+export type {
+  TypedUseSelectorHook,
 } from "https://esm.sh/react-redux@8.0.5?pin=v122";
 export { createSelector } from "https://esm.sh/reselect@4.1.8?pin=v122";
 
@@ -52,6 +54,7 @@ export {
 } from "https://esm.sh/immer@10.0.2?pin=v122";
 export type { Patch } from "https://esm.sh/immer@10.0.2?pin=v122";
 
+// redux
 export type {
   Action,
   Reducer,
@@ -68,13 +71,8 @@ export {
   batchActions,
   enableBatching,
 } from "https://esm.sh/redux-batched-actions@0.5.0?pin=v122";
-export type {
-  MapEntity,
-  PatchEntity,
-} from "https://esm.sh/robodux@15.0.2?pin=v122";
 export {
   createLoaderTable,
   createReducerMap,
   createTable,
-  mapReducers,
 } from "https://esm.sh/robodux@15.0.2?pin=v122";
