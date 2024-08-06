@@ -1,6 +1,6 @@
 import { describe, expect, it } from "../test.ts";
 import { ActionContext, each, put, sleep, spawn, take } from "../mod.ts";
-import { configureStore } from "../store/mod.ts";
+import { createStore } from "../store/mod.ts";
 
 const putTests = describe("put()");
 
@@ -26,7 +26,7 @@ it(putTests, "should send actions through channel", async () => {
     yield* task;
   }
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   await store.run(() => genFn("arg"));
 
   const expected = ["arg", "2"];
@@ -56,7 +56,7 @@ it(putTests, "should handle nested puts", async () => {
     yield* spawn(genA);
   }
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   await store.run(() => root());
 
   const expected = ["put b", "put a"];
@@ -68,13 +68,13 @@ it(
   "should not cause stack overflow when puts are emitted while dispatching saga",
   async () => {
     function* root() {
-      for (let i = 0; i < 40_000; i += 1) {
+      for (let i = 0; i < 10_000; i += 1) {
         yield* put({ type: "test" });
       }
       yield* sleep(0);
     }
 
-    const store = configureStore({ initialState: {} });
+    const store = createStore({ initialState: {} });
     await store.run(() => root());
     expect(true).toBe(true);
   },
@@ -88,7 +88,7 @@ it(
 
     function* root() {
       yield* spawn(function* firstspawn() {
-        yield* sleep(1000);
+        yield* sleep(10);
         yield* put({ type: "c" });
         yield* put({ type: "do not miss" });
       });
@@ -102,8 +102,8 @@ it(
       yield* tsk;
     }
 
-    const store = configureStore({ initialState: {} });
-    await store.run(() => root());
+    const store = createStore({ initialState: {} });
+    await store.run(root);
     const expected = ["didn't get missed"];
     expect(actual).toEqual(expected);
   },

@@ -1,0 +1,62 @@
+{{template "base" .}}
+
+{{define "title"}}{{.Data.Title}}{{end}}
+
+{{define "meta"}}
+<meta name="description" content="{{.Data.Description}}">
+{{end}}
+
+{{define "attrs"}}class="container"{{end}}
+
+{{define "body"}}
+{{template "nav" .}}
+
+<main>
+  <div class="flex flex-col gap-2">
+    <div class="flex items-center justify-center hero">
+      <div class="flex flex-col items-center gap-2">
+        <div class="group-h items-center">
+          <img src="/logo.svg" alt="starfx logo" style="width: 50px;" />
+          <h1 class="text-2xl p-0 logo-hdr">starfx</h1>
+        </div>
+        <div class="text-center text-lg">A micro-mvc framework for react apps.</div>
+        <a href="/getting-started" class="btn-link">GET STARTED</a>
+      </div>
+    </div>
+
+    <article class="features">
+      <div class="box">
+        <h3 class="m-0 p-0 text-lg">
+          Data synchronization and caching
+        </h3>
+        <p>A powerful middleware system to fetch API data</p>
+      </div>
+
+      <div class="box">
+        <h3 class="m-0 p-0 text-lg">
+          An immutable and reactive data store
+        </h3>
+        <p>A normalized database for UI and API data</p>
+      </div>
+
+      <div class="box">
+        <h3 class="m-0 p-0 text-lg">
+          Task tree side-effect system
+        </h3>
+        <p>A robust system for handling complex business logic using structured concurrency</p>
+      </div>
+
+      <div class="box">
+        <h3 class="m-0 p-0 text-lg">
+         React integration
+        </h3>
+        <p>Built for react</p>
+      </div>
+    </article>
+  </div>
+
+  <hr class="my-4" />
+
+  {{template "footer" .}}
+</main>
+{{end}}

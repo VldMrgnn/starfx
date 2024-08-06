@@ -1,7 +1,8 @@
 import { Callable, Operation, Result, sleep } from "../deps.ts";
 import { safe } from "./safe.ts";
 import { parallel } from "./parallel.ts";
-import { log } from "../log.ts";
+import { put } from "../action.ts";
+import { API_ACTION_PREFIX } from "../action.ts";
 
 export function superviseBackoff(attempt: number, max = 10): number {
   if (attempt > max) return -1;
@@ -10,7 +11,7 @@ export function superviseBackoff(attempt: number, max = 10): number {
 }
 
 /**
- * {@link supvervise} will watch whatever {@link Operation} is provided
+ * supvervise will watch whatever {@link Operation} is provided
  * and it will automatically try to restart it when it exists.  By
  * default it uses a backoff pressure mechanism so if there is an
  * error simply calling the {@link Operation} then it will exponentially
@@ -30,14 +31,11 @@ export function supervise<T>(
       if (res.ok) {
         attempt = 0;
       } else {
-        yield* log({
-          type: "error:supervise",
-          payload: {
-            message:
-              `Exception caught, waiting ${waitFor}ms before restarting operation`,
-            error: res.error,
-            op,
-          },
+        yield* put({
+          type: `${API_ACTION_PREFIX}supervise`,
+          payload: res.error,
+          meta:
+            `Exception caught, waiting ${waitFor}ms before restarting operation`,
         });
         yield* sleep(waitFor);
       }

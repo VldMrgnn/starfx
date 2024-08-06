@@ -1,21 +1,24 @@
 import { describe, expect, it } from "../test.ts";
-import { sleep } from "../test.ts";
 import {
-  configureStore,
   createSchema,
+  createStore,
+  select,
   slice,
-  storeMdw,
   updateStore,
+  waitForLoader,
 } from "../store/mod.ts";
 import {
+  AnyState,
   type ApiCtx,
   call,
   createApi,
   createKey,
   keepAlive,
   mdw,
+  Operation,
   safe,
   takeEvery,
+  waitFor,
 } from "../mod.ts";
 import { useCache } from "../react.ts";
 
@@ -31,10 +34,10 @@ const mockUser: User = { id: "1", name: "test", email: "test@test.com" };
 const testStore = () => {
   const [schema, initialState] = createSchema({
     users: slice.table<User>({ empty: emptyUser }),
-    loaders: slice.loader(),
+    loaders: slice.loaders(),
     cache: slice.table({ empty: {} }),
   });
-  const store = configureStore({ initialState });
+  const store = createStore({ initialState });
   return { schema, store };
 };
 
@@ -44,9 +47,8 @@ const jsonBlob = (data: unknown) => {
 
 const tests = describe("createApi()");
 
-it(tests, "createApi - POST", async () => {
+it(tests, "POST", async () => {
   const query = createApi();
-
   query.use(mdw.queryCtx);
   query.use(mdw.nameParser);
   query.use(query.routes());
@@ -98,11 +100,16 @@ it(tests, "createApi - POST", async () => {
     },
   );
 
-  const store = configureStore({ initialState: { users: {} } });
+  const store = createStore({ initialState: { users: {} } });
   store.run(query.bootup);
 
   store.dispatch(createUser({ email: mockUser.email }));
-  await sleep(150);
+
+  await store.run(waitFor(function* (): Operation<boolean> {
+    const res = yield* select((state: AnyState) => state.users["1"].id);
+    return res !== "";
+  }));
+
   expect(store.getState().users).toEqual({
     "1": { id: "1", name: "test", email: "test@test.com" },
   });
@@ -150,7 +157,7 @@ it(tests, "POST with uri", () => {
     },
   );
 
-  const store = configureStore({ initialState: { users: {} } });
+  const store = createStore({ initialState: { users: {} } });
   store.run(query.bootup);
   store.dispatch(createUser({ email: mockUser.email }));
 });
@@ -170,7 +177,7 @@ it(tests, "middleware - with request fn", () => {
     { supervisor: takeEvery },
     query.request({ method: "POST" }),
   );
-  const store = configureStore({ initialState: { users: {} } });
+  const store = createStore({ initialState: { users: {} } });
   store.run(query.bootup);
   store.dispatch(createUser());
 });
@@ -198,7 +205,7 @@ it(tests, "run() on endpoint action - should run the effect", () => {
     },
   );
 
-  const store = configureStore({ initialState: { users: {} } });
+  const store = createStore({ initialState: { users: {} } });
   store.run(api.bootup);
   store.dispatch(action2());
 });
@@ -229,20 +236,18 @@ it(tests, "run() from a normal saga", () => {
   }
 
   function* watchAction() {
-    const task = yield* takeEvery(`${action2}`, onAction);
-    yield* task;
+    yield* takeEvery(`${action2}`, onAction);
   }
 
-  const store = configureStore({ initialState: { users: {} } });
+  const store = createStore({ initialState: { users: {} } });
   store.run(() => keepAlive([api.bootup, watchAction]));
   store.dispatch(action2());
 });
 
-it(tests, "createApi with hash key on a large post", async () => {
+it(tests, "with hash key on a large post", async () => {
   const { store, schema } = testStore();
   const query = createApi();
-  query.use(mdw.api());
-  query.use(storeMdw.store(schema));
+  query.use(mdw.api({ schema }));
   query.use(query.routes());
   query.use(function* fetchApi(ctx, next) {
     const data = {
@@ -280,7 +285,6 @@ it(tests, "createApi with hash key on a large post", async () => {
       ctx.response = new Response();
       ctx.json = {
         ok: true,
-        data: curUsers,
         value: curUsers,
       };
     },
@@ -290,12 +294,13 @@ it(tests, "createApi with hash key on a large post", async () => {
   const largetext = "abc-def-ghi-jkl-mno-pqr".repeat(100);
 
   store.run(query.bootup);
-  store.dispatch(createUserDefaultKey({ email, largetext }));
+  const action = createUserDefaultKey({ email, largetext });
+  store.dispatch(action);
 
-  await sleep(150);
+  await store.run(waitForLoader(schema.loaders, action));
 
   const s = store.getState();
-  const expectedKey = createKey(`${createUserDefaultKey}`, {
+  const expectedKey = createKey(action.payload.name, {
     email,
     largetext,
   });
@@ -306,18 +311,15 @@ it(tests, "createApi with hash key on a large post", async () => {
   });
 });
 
-it(tests, "createApi - two identical endpoints", async () => {
+it(tests, "two identical endpoints", () => {
   const actual: string[] = [];
   const { store, schema } = testStore();
   const api = createApi();
-  api.use(mdw.api());
-  api.use(storeMdw.store(schema));
-  api.use(mdw.nameParser);
+  api.use(mdw.api({ schema }));
   api.use(api.routes());
 
   const first = api.get(
     "/health",
-    { supervisor: takeEvery },
     function* (ctx, next) {
       actual.push(ctx.req().url);
       yield* next();
@@ -326,7 +328,6 @@ it(tests, "createApi - two identical endpoints", async () => {
 
   const second = api.get(
     ["/health", "poll"],
-    { supervisor: takeEvery },
     function* (ctx, next) {
       actual.push(ctx.req().url);
       yield* next();
@@ -336,8 +337,6 @@ it(tests, "createApi - two identical endpoints", async () => {
   store.run(api.bootup);
   store.dispatch(first());
   store.dispatch(second());
-
-  await sleep(150);
 
   expect(actual).toEqual(["/health", "/health"]);
 });
@@ -353,7 +352,7 @@ it(tests, "ensure types for get() endpoint", () => {
   api.use(function* (ctx, next) {
     yield* next();
     const data = { result: "wow" };
-    ctx.json = { ok: true, data, value: data };
+    ctx.json = { ok: true, value: data };
   });
 
   const acc: string[] = [];
@@ -372,7 +371,7 @@ it(tests, "ensure types for get() endpoint", () => {
     },
   );
 
-  const store = configureStore({ initialState: { users: {} } });
+  const store = createStore({ initialState: { users: {} } });
   store.run(api.bootup);
 
   store.dispatch(action1({ id: "1" }));
@@ -391,7 +390,7 @@ it(tests, "ensure ability to cast `ctx` in function definition", () => {
   api.use(function* (ctx, next) {
     yield* next();
     const data = { result: "wow" };
-    ctx.json = { ok: true, data, value: data };
+    ctx.json = { ok: true, value: data };
   });
 
   const acc: string[] = [];
@@ -410,7 +409,7 @@ it(tests, "ensure ability to cast `ctx` in function definition", () => {
     },
   );
 
-  const store = configureStore({ initialState: { users: {} } });
+  const store = createStore({ initialState: { users: {} } });
   store.run(api.bootup);
   store.dispatch(action1({ id: "1" }));
   expect(acc).toEqual(["1", "wow"]);
@@ -428,7 +427,7 @@ it(
     api.use(function* (ctx, next) {
       yield* next();
       const data = { result: "wow" };
-      ctx.json = { ok: true, data, value: data };
+      ctx.json = { ok: true, value: data };
     });
 
     const acc: string[] = [];
@@ -446,7 +445,7 @@ it(
       },
     );
 
-    const store = configureStore({ initialState: { users: {} } });
+    const store = createStore({ initialState: { users: {} } });
     store.run(api.bootup);
     store.dispatch(action1());
     expect(acc).toEqual(["wow"]);
@@ -455,7 +454,7 @@ it(
 
 it(tests, "should bubble up error", () => {
   let error: any = null;
-  const { store, schema } = testStore();
+  const { store } = testStore();
   const api = createApi();
   api.use(function* (_, next) {
     try {
@@ -465,7 +464,6 @@ it(tests, "should bubble up error", () => {
     }
   });
   api.use(mdw.queryCtx);
-  api.use(storeMdw.store(schema));
   api.use(api.routes());
 
   const fetchUser = api.get(
@@ -494,7 +492,7 @@ it(
     api.use(function* (ctx, next) {
       yield* next();
       const data = { result: "wow" };
-      ctx.json = { ok: true, data, value: data };
+      ctx.json = { ok: true, value: data };
     });
 
     const acc: string[] = [];
@@ -515,7 +513,7 @@ it(
       },
     );
 
-    const store = configureStore({ initialState: { users: {} } });
+    const store = createStore({ initialState: { users: {} } });
     store.run(api.bootup);
 
     function _App() {

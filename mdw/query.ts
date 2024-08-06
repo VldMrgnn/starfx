@@ -8,12 +8,12 @@ import type {
   PerfCtx,
   RequiredApiRequest,
   ThunkCtx,
-} from "./types.ts";
-import type { Next } from "../types.ts";
-import { mergeRequest } from "./util.ts";
+} from "../query/types.ts";
+import type { AnyAction, Next } from "../types.ts";
+import { mergeRequest } from "../query/util.ts";
 import * as fetchMdw from "./fetch.ts";
-import { log } from "../log.ts";
 import { call, Callable } from "../deps.ts";
+import { put } from "../action.ts";
 export * from "./fetch.ts";
 
 /**
@@ -33,11 +33,13 @@ export function* err<Ctx extends ThunkCtx = ThunkCtx>(
 ) {
   ctx.result = yield* safe(next);
   if (!ctx.result.ok) {
-    yield* log({
+    const message =
+      `Error: ${ctx.result.error.message}.  Check the endpoint [${ctx.name}]`;
+    console.error(message, ctx);
+    yield* put({
       type: "error:query",
       payload: {
-        message:
-          `Error: ${ctx.result.error.message}.  Check the endpoint [${ctx.name}]`,
+        message,
         ctx,
       },
     });
@@ -87,25 +89,25 @@ export function* queryCtx<Ctx extends ApiCtx = ApiCtx>(ctx: Ctx, next: Next) {
   }
   if (!ctx.request) ctx.request = ctx.req();
   if (!ctx.response) ctx.response = null;
-  if (!ctx.json) ctx.json = { ok: false, data: {}, error: {} };
+  if (!ctx.json) ctx.json = { ok: false, error: {} };
   if (!ctx.actions) ctx.actions = [];
   if (!ctx.bodyType) ctx.bodyType = "json";
   yield* next();
 }
 
 /**
- * This middleware is a composition of many middleware used to faciliate
- * the {@link createApi}.
+ * This middleware will take the result of `ctx.actions` and dispatch them
+ * as a single batch.
  *
- * It is not required, however,
+ * @remarks This is useful because sometimes there are a lot of actions that need dispatched
+ * within the pipeline of the middleware and instead of dispatching them serially this
+ * improves performance by only hitting the reducers once.
  */
-export function api<Ctx extends ApiCtx = ApiCtx>() {
-  return compose<Ctx>([
-    err,
-    queryCtx,
-    customKey,
-    fetchMdw.nameParser,
-  ]);
+export function* actions(ctx: { actions: AnyAction[] }, next: Next) {
+  if (!ctx.actions) ctx.actions = [];
+  yield* next();
+  if (ctx.actions.length === 0) return;
+  yield* put(ctx.actions);
 }
 
 /**

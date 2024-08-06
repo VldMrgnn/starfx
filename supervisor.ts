@@ -1,14 +1,14 @@
-import { race } from "./fx/mod.ts";
-import { take } from "./action.ts";
-import { call, Callable, Operation, sleep, spawn, Task } from "./deps.ts";
+import { createAction, take } from "./action.ts";
+import { call, Callable, Operation, race, sleep, spawn, Task } from "./deps.ts";
 import type { ActionWithPayload, AnyAction } from "./types.ts";
 import type { CreateActionPayload } from "./query/mod.ts";
+import { getIdFromAction } from "./action.ts";
 
 const MS = 1000;
 const SECONDS = 1 * MS;
 const MINUTES = 60 * SECONDS;
 
-export function poll(parentTimer: number = 5 * 1000, cancelType?: string) {
+export function poll(parentTimer: number = 5 * SECONDS, cancelType?: string) {
   return function* poller<T>(
     actionType: string,
     op: (action: AnyAction) => Operation<T>,
@@ -16,7 +16,7 @@ export function poll(parentTimer: number = 5 * 1000, cancelType?: string) {
     const cancel = cancelType || actionType;
     function* fire(action: { type: string }, timer: number) {
       while (true) {
-        yield* call(() => op(action));
+        yield* op(action);
         yield* sleep(timer);
       }
     }
@@ -24,13 +24,19 @@ export function poll(parentTimer: number = 5 * 1000, cancelType?: string) {
     while (true) {
       const action = yield* take<{ timer?: number }>(actionType);
       const timer = action.payload?.timer || parentTimer;
-      yield* race({
-        fire: () => call(() => fire(action, timer)),
-        cancel: () => take(`${cancel}`),
-      });
+      yield* race([
+        fire(action, timer),
+        take(`${cancel}`) as Operation<void>,
+      ]);
     }
   };
 }
+
+type ClearTimerPayload = string | { type: string; payload: { key: string } };
+
+export const clearTimers = createAction<
+  ClearTimerPayload | ClearTimerPayload[]
+>("clear-timers");
 
 /**
  * timer() will create a cache timer for each `key` inside
@@ -50,7 +56,30 @@ export function timer(timer: number = 5 * MINUTES) {
 
     function* activate(action: ActionWithPayload<CreateActionPayload>) {
       yield* call(() => op(action));
-      yield* sleep(timer);
+      const idA = getIdFromAction(action);
+
+      const matchFn = (
+        act: ActionWithPayload<ClearTimerPayload | ClearTimerPayload[]>,
+      ) => {
+        if (act.type !== `${clearTimers}`) return false;
+        if (!act.payload) return false;
+        const ids = Array.isArray(act.payload) ? act.payload : [act.payload];
+        return ids.some((id) => {
+          if (id === "*") {
+            return true;
+          }
+          if (typeof id === "string") {
+            return idA === id;
+          } else {
+            return idA === getIdFromAction(id);
+          }
+        });
+      };
+      yield* race([
+        sleep(timer),
+        take(matchFn as any) as Operation<void>,
+      ]);
+
       delete map[action.payload.key];
     }
 

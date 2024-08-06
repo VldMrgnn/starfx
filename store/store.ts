@@ -1,21 +1,18 @@
 import {
-  Callable,
   createScope,
   createSignal,
   enablePatches,
   Ok,
   produceWithPatches,
-  Result,
   Scope,
-  Task,
 } from "../deps.ts";
 import { BaseMiddleware, compose } from "../compose.ts";
 import type { AnyAction, AnyState, Next } from "../types.ts";
-import { safe } from "../fx/mod.ts";
 import type { FxStore, Listener, StoreUpdater, UpdaterCtx } from "./types.ts";
 import { StoreContext, StoreUpdateContext } from "./context.ts";
-import { log } from "../log.ts";
 import { ActionContext, emit } from "../action.ts";
+import { API_ACTION_PREFIX } from "../action.ts";
+import { createRun } from "./run.ts";
 
 const stubMsg = "This is merely a stub, not implemented";
 
@@ -93,9 +90,9 @@ export function createStore<S extends AnyState>({
   }
 
   function* logMdw(ctx: UpdaterCtx<S>, next: Next) {
-    yield* log({
-      type: "store",
-      payload: { ctx },
+    dispatch({
+      type: `${API_ACTION_PREFIX}store`,
+      payload: ctx,
     });
     yield* next();
   }
@@ -134,12 +131,9 @@ export function createStore<S extends AnyState>({
     yield* mdw(ctx);
 
     if (!ctx.result.ok) {
-      yield* log({
-        type: "error:store",
-        payload: {
-          message: `Exception raised when calling store updaters`,
-          error: ctx.result.error,
-        },
+      dispatch({
+        type: `${API_ACTION_PREFIX}store`,
+        payload: ctx.result.error,
       });
     }
 
@@ -148,10 +142,6 @@ export function createStore<S extends AnyState>({
 
   function dispatch(action: AnyAction | AnyAction[]) {
     emit({ signal, action });
-  }
-
-  function run<T>(op: Callable<T>): Task<Result<T>> {
-    return scope.run(() => safe(op));
   }
 
   function getInitialState() {
@@ -171,13 +161,13 @@ export function createStore<S extends AnyState>({
     });
   }
 
-  return {
+  const store = {
     getScope,
     getState,
     subscribe,
     update,
     reset,
-    run,
+    run: createRun(scope),
     // instead of actions relating to store mutation, they
     // refer to pieces of business logic -- that can also mutate state
     dispatch,
@@ -191,13 +181,13 @@ export function createStore<S extends AnyState>({
     getInitialState,
     [Symbol.observable]: observable,
   };
-}
 
-export function configureStore<S extends AnyState>(
-  props: CreateStore<S>,
-): FxStore<S> {
-  const store = createStore<S>(props);
   // deno-lint-ignore no-explicit-any
   store.getScope().set(StoreContext, store as any);
   return store;
 }
+
+/**
+ * @deprecated use {@link createStore}
+ */
+export const configureStore = createStore;

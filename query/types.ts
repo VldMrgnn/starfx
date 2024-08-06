@@ -22,6 +22,10 @@ export interface ThunkCtx<P = any> extends Payload<P> {
   result: Result<void>;
 }
 
+export interface ThunkCtxWLoader extends ThunkCtx {
+  loader: Omit<LoaderPayload<any>, "id"> | null;
+}
+
 export interface LoaderCtx<P = unknown> extends ThunkCtx<P> {
   loader: Partial<LoaderItemState> | null;
 }
@@ -30,18 +34,10 @@ export type ApiFetchResult<ApiSuccess = any, ApiError = any> =
   | {
     ok: true;
     value: ApiSuccess;
-    /**
-     * @deprecated Use {@link ApiFetchResult.value} instead.
-     */
-    data: ApiSuccess;
   }
   | {
     ok: false;
     error: ApiError;
-    /**
-     * @deprecated Use {@link ApiFetchResult.error} instead.
-     */
-    data: ApiError;
   };
 
 export type ApiRequest = Partial<{ url: string } & RequestInit>;

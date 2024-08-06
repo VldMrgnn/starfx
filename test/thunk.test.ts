@@ -1,6 +1,13 @@
-import { assertLike, asserts, describe, it, sleep } from "../test.ts";
-import { configureStore, updateStore } from "../store/mod.ts";
-import { call, createThunks, put, sleep as delay, takeEvery } from "../mod.ts";
+import { assertLike, asserts, describe, it } from "../test.ts";
+import { createStore, updateStore } from "../store/mod.ts";
+import {
+  call,
+  createThunks,
+  put,
+  sleep as delay,
+  takeEvery,
+  waitFor,
+} from "../mod.ts";
 import type { Next, ThunkCtx } from "../mod.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -128,7 +135,7 @@ it(
     api.use(processTickets);
     const fetchUsers = api.create(`/users`, { supervisor: takeEvery });
 
-    const store = configureStore<TestState>({
+    const store = createStore<TestState>({
       initialState: { users: {}, tickets: {} },
     });
     store.run(api.bootup);
@@ -165,7 +172,7 @@ it(
       yield* put(fetchUsers());
     });
 
-    const store = configureStore<TestState>({
+    const store = createStore<TestState>({
       initialState: { users: {}, tickets: {} },
     });
     store.run(api.bootup);
@@ -195,7 +202,7 @@ it(tests, "error handling", () => {
 
   const action = api.create(`/error`, { supervisor: takeEvery });
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action());
   asserts.assertStrictEquals(called, true);
@@ -220,7 +227,7 @@ it(tests, "error handling inside create", () => {
       }
     },
   );
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action());
   asserts.assertStrictEquals(called, true);
@@ -247,7 +254,7 @@ it(tests, "error inside endpoint mdw", () => {
     },
   );
 
-  const store = configureStore({
+  const store = createStore({
     initialState: {
       users: {},
     },
@@ -282,7 +289,7 @@ it(tests, "create fn is an array", () => {
     },
   ]);
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action());
 });
@@ -321,7 +328,7 @@ it(tests, "run() on endpoint action - should run the effect", () => {
     },
   );
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action2());
 });
@@ -363,7 +370,7 @@ it(
       },
     );
 
-    const store = configureStore({ initialState: {} });
+    const store = createStore({ initialState: {} });
     store.run(api.bootup);
     store.dispatch(action2());
   },
@@ -397,14 +404,15 @@ it(tests, "middleware order of execution", async () => {
       acc += "a";
       yield* next();
       acc += "g";
+      yield* put({ type: "DONE" });
     },
   );
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action());
 
-  await sleep(150);
+  await store.run(waitFor(() => acc === "abcdefg"));
   asserts.assert(acc === "abcdefg");
 });
 
@@ -417,11 +425,13 @@ it(tests, "retry with actionFn", async () => {
 
   const action = api.create(
     "/api",
-    { supervisor: takeEvery },
     function* (ctx, next) {
       acc += "a";
       yield* next();
       acc += "g";
+      if (acc === "agag") {
+        yield* put({ type: "DONE" });
+      }
 
       if (!called) {
         called = true;
@@ -430,11 +440,11 @@ it(tests, "retry with actionFn", async () => {
     },
   );
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action());
 
-  await sleep(150);
+  await store.run(waitFor(() => acc === "agag"));
   asserts.assertEquals(acc, "agag");
 });
 
@@ -460,11 +470,11 @@ it(tests, "retry with actionFn with payload", async () => {
     },
   );
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action({ page: 1 }));
 
-  await sleep(150);
+  await store.run(waitFor(() => acc === "agag"));
   asserts.assertEquals(acc, "agag");
 });
 
@@ -490,8 +500,38 @@ it(tests, "should only call thunk once", () => {
     },
   );
 
-  const store = configureStore({ initialState: {} });
+  const store = createStore({ initialState: {} });
   store.run(api.bootup);
   store.dispatch(action2());
   asserts.assertEquals(acc, "a");
+});
+
+it(tests, "should be able to create thunk after `register()`", () => {
+  const api = createThunks<RoboCtx>();
+  api.use(api.routes());
+  const store = createStore({ initialState: {} });
+  store.run(api.register);
+
+  let acc = "";
+  const action = api.create("/users", function* () {
+    acc += "a";
+  });
+  store.dispatch(action());
+  asserts.assertEquals(acc, "a");
+});
+
+it(tests, "should warn when calling thunk before registered", () => {
+  const err = console.error;
+  let called = false;
+  console.error = () => {
+    called = true;
+  };
+  const api = createThunks<RoboCtx>();
+  api.use(api.routes());
+  const store = createStore({ initialState: {} });
+
+  const action = api.create("/users");
+  store.dispatch(action());
+  asserts.assertEquals(called, true);
+  console.error = err;
 });

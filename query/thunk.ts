@@ -1,7 +1,6 @@
 import { compose } from "../compose.ts";
-import type { ActionWithPayload, Next, Payload } from "../types.ts";
-import { keepAlive } from "../mod.ts";
-import { takeEvery } from "../action.ts";
+import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
+import { ActionContext, createAction, put, takeEvery } from "../action.ts";
 import { isFn, isObject } from "./util.ts";
 import { createKey } from "./create-key.ts";
 import type {
@@ -14,12 +13,18 @@ import type {
   ThunkCtx,
 } from "./types.ts";
 import { API_ACTION_PREFIX } from "../action.ts";
-import { Callable, Ok, Operation } from "../deps.ts";
+import { Callable, Ok, Operation, Signal, spawn } from "../deps.ts";
+import { supervise } from "../fx/mod.ts";
+
+const registerThunk = createAction<Callable<unknown>>(
+  `${API_ACTION_PREFIX}REGISTER_THUNK`,
+);
 
 export interface ThunksApi<Ctx extends ThunkCtx> {
   use: (fn: Middleware<Ctx>) => void;
   routes: () => Middleware<Ctx>;
   bootup: Callable<void>;
+  register: Callable<void>;
   reset: () => void;
 
   /**
@@ -122,6 +127,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     supervisor?: Supervisor;
   } = { supervisor: takeEvery },
 ): ThunksApi<Ctx> {
+  let signal: Signal<AnyAction, void> | undefined = undefined;
   const middleware: Middleware<Ctx>[] = [];
   const visors: { [key: string]: Callable<unknown> } = {};
   const middlewareMap: { [key: string]: Middleware<Ctx> } = {};
@@ -134,8 +140,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     yield* next();
   }
 
-  const createType = (post: string) =>
-    `${API_ACTION_PREFIX}${post.startsWith("/") ? "" : "/"}${post}`;
+  const createType = (post: string) => `${API_ACTION_PREFIX}${post}`;
 
   function* onApi<P extends CreateActionPayload>(
     action: ActionWithPayload<P>,
@@ -197,16 +202,30 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
 
     const tt = req ? (req as any).supervisor : supervisor;
     function* curVisor() {
-      const task = yield* tt(type, onApi);
-      yield* task;
+      yield* tt(type, onApi);
+    }
+    // if we have a signal that means the `register()` function has already been called
+    // so that means we can immediately register the thunk
+    if (signal) {
+      signal.send(registerThunk(curVisor));
     }
     visors[name] = curVisor;
 
+    const errMsg =
+      `[${name}] is being called before its thunk has been registered. ` +
+      "Run `store.run(thunks.register)` where `thunks` is the name of your `createThunks` or `createApi` variable.";
+
     const actionFn = (options?: Ctx["payload"]) => {
+      if (!signal) {
+        console.error(errMsg);
+      }
       const key = createKey(name, options);
       return action({ name, key, options });
     };
     actionFn.run = (action?: unknown): Operation<Ctx> => {
+      if (!signal) {
+        console.error(errMsg);
+      }
       if (action && Object.hasOwn(action, "type")) {
         return onApi(action as ActionWithPayload<CreateActionPayload>);
       }
@@ -220,7 +239,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
         dynamicMiddlewareMap[name] = fn;
       }
     };
-    actionFn.toString = () => name;
+    actionFn.toString = () => type;
     actionFn._success = {};
     actionFn._error = {};
     actionMap[name] = actionFn;
@@ -228,8 +247,27 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     return actionFn;
   }
 
+  function* watcher(action: ActionWithPayload<Callable<unknown>>) {
+    yield* supervise(action.payload)();
+  }
+
+  function* register() {
+    // cache the signal so we can use it when creating thunks after we
+    // have already called `register()`
+    signal = yield* ActionContext;
+
+    const task = yield* spawn(function* () {
+      yield* takeEvery(`${registerThunk}`, watcher as any);
+    });
+
+    // register any thunks already created
+    yield* put(Object.values(visors).map(registerThunk));
+
+    yield* task;
+  }
+
   function* bootup() {
-    yield* keepAlive(Object.values(visors));
+    yield* register();
   }
 
   function routes() {
@@ -257,7 +295,11 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     },
     create,
     routes,
+    /**
+     * @deprecated use `register()` instead
+     */
     bootup,
     reset: resetMdw,
+    register,
   };
 }

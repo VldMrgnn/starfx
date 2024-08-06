@@ -1,8 +1,8 @@
 import { asserts, describe, it } from "../test.ts";
 import {
-  configureStore,
   createPersistor,
   createSchema,
+  createStore,
   PERSIST_LOADER_ID,
   PersistAdapter,
   persistStoreMdw,
@@ -15,7 +15,7 @@ const tests = describe("store");
 it(tests, "can persist to storage adapters", async () => {
   const [schema, initialState] = createSchema({
     token: slice.str(),
-    loaders: slice.loader(),
+    loaders: slice.loaders(),
     cache: slice.table({ empty: {} }),
   });
   type State = typeof initialState;
@@ -34,7 +34,7 @@ it(tests, "can persist to storage adapters", async () => {
   };
   const persistor = createPersistor<State>({ adapter, allowlist: ["token"] });
   const mdw = persistStoreMdw(persistor);
-  const store = configureStore({
+  const store = createStore({
     initialState,
     middleware: [mdw],
   });
@@ -63,7 +63,7 @@ it(tests, "can persist to storage adapters", async () => {
 it(tests, "rehydrates state", async () => {
   const [schema, initialState] = createSchema({
     token: slice.str(),
-    loaders: slice.loader(),
+    loaders: slice.loaders(),
     cache: slice.table({ empty: {} }),
   });
   type State = typeof initialState;
@@ -82,7 +82,7 @@ it(tests, "rehydrates state", async () => {
   };
   const persistor = createPersistor<State>({ adapter, allowlist: ["token"] });
   const mdw = persistStoreMdw(persistor);
-  const store = configureStore({
+  const store = createStore({
     initialState,
     middleware: [mdw],
   });
