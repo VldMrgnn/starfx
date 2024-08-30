@@ -26,16 +26,15 @@ interface TransformFunctions<S extends AnyState> {
   out(s: Partial<S>): Operation<Partial<S>>;
 }
 
-export function createTransform<S extends AnyState>(initialState: Partial<S>) {
-  const state = initialState;
+export function createTransform<S extends AnyState>(inputState: Partial<S>) {
 
   const transformers: TransformFunctions<S> = {
-    in: function* (_: Partial<S>): Operation<Partial<S>> {
-      return state;
+    in: function* (currentState: Partial<S>): Operation<Partial<S>> {
+      return currentState;
 
     },
-    out: function* (_: Partial<S>): Operation<Partial<S>> {
-      return state;
+    out: function* (currentState: Partial<S>): Operation<Partial<S>> {
+      return currentState;
     }
   };
   const setInTransformer = function (transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {

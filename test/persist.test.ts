@@ -331,7 +331,113 @@ it(tests, "persists a filtered nested part of a slice", async () => {
 //  prooven by the other tests
 // });
 
-// it(tests, "handles the empty state correctly", async () => {});
+
+
+it(tests, "handles the empty state correctly", async () => {
+  const [_schema, initialState] = createSchema({
+    token: slice.str(),
+    loaders: slice.loaders(),
+    cache: slice.table({ empty: {} }),
+  });
+
+    type State = typeof initialState;
+  let ls = "{}";
+  
+  const adapter: PersistAdapter<State> = {
+    getItem: function* (_: string) {
+      return Ok(JSON.parse(ls));
+    },
+    setItem: function* (_: string, s: Partial<State>) {
+      ls = JSON.stringify(s);
+      return Ok(undefined);
+    },
+    removeItem: function* (_: string) {
+      return Ok(undefined);
+    },
+  };
+
+  const transform = createTransform<State>(initialState);
+  transform.setInTransformer(function* (_: Partial<State>) {
+    return {}
+  })
+
+
+  const persistor = createPersistor<State>({
+    adapter,
+    transform
+  });
+
+  const mdw = persistStoreMdw(persistor);
+  const store = createStore({
+    initialState,
+    middleware: [mdw],
+  });
+
+  await store.run(function* (): Operation<void> {
+    yield* persistor.rehydrate();
+  });
+
+  asserts.assertEquals(
+    ls,
+    "{}",
+  );
+});
+
+it(tests, "in absence of the inbound transformer, persists as it is", async () => {
+  const [schema, initialState] = createSchema({
+    token: slice.str(),
+    loaders: slice.loaders(),
+    cache: slice.table({ empty: {} }),
+  });
+  type State = typeof initialState;
+  let ls = "{}";
+  const adapter: PersistAdapter<State> = {
+    getItem: function* (_: string) {
+      return Ok(JSON.parse(ls));
+    },
+    setItem: function* (_: string, s: Partial<State>) {
+      ls = JSON.stringify(s);
+      return Ok(undefined);
+    },
+    removeItem: function* (_: string) {
+      return Ok(undefined);
+    },
+  };
+  const persistor = createPersistor<State>({ 
+    adapter, 
+    allowlist: ["token"],     
+    transform: createTransform<State>(initialState)// we deliberately do not set the inbound transformer
+  });
+
+  const mdw = persistStoreMdw(persistor);
+  const store = createStore({
+    initialState,
+    middleware: [mdw],
+  });
+
+  await store.run(function* (): Operation<void> {
+    yield* persistor.rehydrate();
+
+    const group = yield* parallel([
+      function* (): Operation<void> {
+        const action = yield* take<string>("SET_TOKEN");
+        yield* schema.update(schema.token.set(action.payload));
+      },
+      function* () {
+        yield* put({ type: "SET_TOKEN", payload: "1234" });
+      },
+    ]);
+    yield* group;
+  });
+
+  console.log('local state:', ls);
+  console.log('store:', store.getState());
+
+  asserts.assertEquals(
+    ls,
+    '{"token":"1234"}',
+  );
+});
 
 // it(tests, "handles errors gracefully", async () => {});
 
