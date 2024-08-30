@@ -1,4 +1,4 @@
-import { call, Callable, Err, Ok, Operation, Result, sleep } from '../deps.ts';
+import { call, Err, Ok, Operation, Result } from '../deps.ts';
 import { select, updateStore } from './fx.ts';
 
 import type { AnyState, Next } from "../types.ts";
