@@ -1,5 +1,5 @@
-import { call, Err, Ok, Operation, Result } from '../deps.ts';
-import { select, updateStore } from './fx.ts';
+import { call, Err, Ok, Operation, Result } from "../deps.ts";
+import { select, updateStore } from "./fx.ts";
 
 import type { AnyState, Next } from "../types.ts";
 import type { UpdaterCtx } from "./types.ts";
@@ -26,21 +26,23 @@ interface TransformFunctions<S extends AnyState> {
   out(s: Partial<S>): Operation<Partial<S>>;
 }
 
-export function createTransform<S extends AnyState>(inputState: Partial<S>) {
-
+export function createTransform<S extends AnyState>() {
   const transformers: TransformFunctions<S> = {
     in: function* (currentState: Partial<S>): Operation<Partial<S>> {
       return currentState;
-
     },
     out: function* (currentState: Partial<S>): Operation<Partial<S>> {
       return currentState;
-    }
+    },
   };
-  const setInTransformer = function (transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {
+  const setInTransformer = function (
+    transformer: (fn: Partial<S>) => Operation<Partial<S>>,
+  ): void {
     transformers.in = transformer;
   };
-  const setOutTransformer = function (transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {
+  const setOutTransformer = function (
+    transformer: (fn: Partial<S>) => Operation<Partial<S>>,
+  ): void {
     transformers.out = transformer;
   };
 
@@ -93,7 +95,13 @@ export function shallowReconciler<S extends AnyState>(
 }
 
 export function createPersistor<S extends AnyState>(
-  { adapter, key = "starfx", reconciler = shallowReconciler, allowlist = [], transform }:
+  {
+    adapter,
+    key = "starfx",
+    reconciler = shallowReconciler,
+    allowlist = [],
+    transform,
+  }:
     & Pick<PersistProps<S>, "adapter">
     & Partial<PersistProps<S>>,
 ): PersistProps<S> {
@@ -125,7 +133,7 @@ export function createPersistor<S extends AnyState>(
     allowlist,
     reconciler,
     rehydrate,
-    transform
+    transform,
   };
 }
 
