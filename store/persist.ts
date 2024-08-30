@@ -1,6 +1,5 @@
-import { call, Err, Ok, Operation, Result } from "../deps.ts";
-import { safe } from "../mod.ts";
-import { select, updateStore } from "./fx.ts";
+import { call, Err, Ok, Operation, Result } from '../deps.ts';
+import { select, updateStore } from './fx.ts';
 
 import type { AnyState, Next } from "../types.ts";
 import type { UpdaterCtx } from "./types.ts";
