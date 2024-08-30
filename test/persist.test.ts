@@ -808,6 +808,75 @@ it(tests, "persists outbound a filtered nested part of a slice", async () => {
   );
 });
 
-// it("the outbound transformer can be reset during runtime", async () => {
-//   asserts.assertEquals(1, 1);
-// });
+it("the outbound transformer can be reset during runtime", async () => {
+  const [schema, initialState] = createSchema({
+    token: slice.str(),
+    counter: slice.num(0),
+    loaders: slice.loaders(),
+    cache: slice.table({ empty: {} }),
+  });
+  type State = typeof initialState;
+  let ls = '{"token": "01234"}';
+
+  const adapter: PersistAdapter<State> = {
+    getItem: function* (_: string) {
+      return Ok(JSON.parse(ls));
+    },
+    setItem: function* (_: string, s: Partial<State>) {
+      ls = JSON.stringify(s);
+      return Ok(undefined);
+    },
+    removeItem: function* (_: string) {
+      return Ok(undefined);
+    },
+  };
+
+  function* revertToken(state: Partial<State>) {
+    return { ...state, token: state?.token?.split("").reverse().join("") };
+  }
+  const transform = createTransform<State>();
+  transform.out = revertToken;
+
+  const persistor = createPersistor<State>({
+    adapter,
+    allowlist: ["token"],
+    transform,
+  });
+
+  const mdw = persistStoreMdw(persistor);
+  const store = createStore({
+    initialState,
+    middleware: [mdw],
+  });
+
+  await store.run(function* (): Operation<void> {
+    yield* persistor.rehydrate();
+    yield* schema.update(schema.loaders.success({ id: PERSIST_LOADER_ID }));
+  });
+
+  asserts.assertEquals(
+    store.getState().token,
+    "43210",
+  );
+
+  transform.out = function* (state) {
+    return {
+      ...state,
+      token: `${state?.token}56789`,
+    };
+  };
+
+  await store.run(function* (): Operation<void> {
+    yield* schema.update(schema.token.set("01234"));
+  });
+
+  asserts.assertEquals(
+    ls,
+    '{"token":"0123456789"}',
+  );
+
+  asserts.assertEquals(
+    store.getState().token,
+    "0123456789",
+  );
+});
