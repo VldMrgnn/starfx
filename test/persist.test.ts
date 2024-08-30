@@ -450,9 +450,6 @@ it(
       yield* group;
     });
 
-    console.log("local state:", ls);
-    console.log("store:", store.getState());
-
     asserts.assertEquals(
       ls,
       '{"token":"1234"}',
