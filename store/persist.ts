@@ -22,8 +22,8 @@ export interface PersistProps<S extends AnyState> {
 }
 
 interface TransformFunctions<S extends AnyState> {
-  in(s:Partial<S>): Operation<Partial<S>>;
-  out(s: Partial<S>):Operation<Partial<S>>;
+  in(s: Partial<S>): Operation<Partial<S>>;
+  out(s: Partial<S>): Operation<Partial<S>>;
 }
 
 export function createTransform<S extends AnyState>(initialState: Partial<S>) {
@@ -41,17 +41,17 @@ export function createTransform<S extends AnyState>(initialState: Partial<S>) {
   const setInTransformer = function (transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {
     transformers.in = transformer;
   };
-  const setOutTransformer = function(transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {
+  const setOutTransformer = function (transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {
     transformers.out = transformer;
   };
 
   const inTransformer = function* (state: Partial<S>): Operation<Partial<S>> {
-    const result =  yield* transformers.in(state);
+    const result = yield* transformers.in(state);
     return result;
   };
 
   const outTransformer = function* (state: Partial<S>): Operation<Partial<S>> {
-    const result =  yield* transformers.out(state);
+    const result = yield* transformers.out(state);
     return result;
   };
 
@@ -106,7 +106,7 @@ export function createPersistor<S extends AnyState>(
     let stateFromStorage = persistedState.value as Partial<S>;
 
     if (transform) {
-      stateFromStorage = yield* call(()=> transform.out(stateFromStorage));
+      stateFromStorage = yield* call(() => transform.out(stateFromStorage));
     }
 
     const state = yield* select((s) => s);
@@ -139,7 +139,7 @@ export function persistStoreMdw<S extends AnyState>(
 
     let transformedState: Partial<S> = state;
     if (transform) {
-      transformedState =yield* call(transform.in(state));
+      transformedState = yield* call(transform.in(state));
     }
 
     // empty allowlist list means save entire state

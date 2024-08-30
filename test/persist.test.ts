@@ -327,19 +327,18 @@ it(tests, "persists a filtered nested part of a slice", async () => {
 
 // todo: implement these tests
 
-
 // it(tests, "persists as it is, without any transformer", async () => {
 //  prooven by the other tests
 // });
 
 // it(tests, "handles the empty state correctly", async () => {});
+
 // it(tests, "handles errors gracefully", async () => {});
-//it(tests, "applies the transformer before persisting state" , async () => {});
+
+// it(tests, "applies the transformer before persisting state" , async () => {});
 
 // related to allowlist (if we transform/derive using the value of a slice that is not in the allow list)
 // it(tests, "the tranformers are applied to the full state, regardless of the allowlist", async () => {});
-
-
 
 // it("the inbound transformer can be reset during runtime", async () => {
 //   asserts.assertEquals(1, 1);
