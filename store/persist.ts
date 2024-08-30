@@ -1,9 +1,9 @@
-import { call, Err, Ok, Operation, Result } from "../deps.ts";
-import { select, updateStore } from "./fx.ts";
+import { call, Err, Ok, Operation, Result } from '../deps.ts';
+import { safe } from '../mod.ts';
+import { select, updateStore } from './fx.ts';
 
 import type { AnyState, Next } from "../types.ts";
 import type { UpdaterCtx } from "./types.ts";
-
 export const PERSIST_LOADER_ID = "@@starfx/persist";
 
 export interface PersistAdapter<S extends AnyState> {
@@ -113,7 +113,11 @@ export function createPersistor<S extends AnyState>(
     let stateFromStorage = persistedState.value as Partial<S>;
 
     if (transform) {
-      stateFromStorage = yield* call(() => transform.out(stateFromStorage));
+      try {
+        stateFromStorage = yield* call(transform.out(persistedState.value));
+      } catch (err: any) {
+        console.error("Persistor outbound transformer error:", err);
+      }
     }
 
     const state = yield* select((s) => s);
@@ -146,7 +150,11 @@ export function persistStoreMdw<S extends AnyState>(
 
     let transformedState: Partial<S> = state;
     if (transform) {
-      transformedState = yield* call(transform.in(state));
+      try {
+        transformedState = yield* call(transform.in(state));
+      } catch (err: any) {
+        console.error("Persistor inbound transformer error:", err);
+      }
     }
 
     // empty allowlist list means save entire state
