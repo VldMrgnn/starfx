@@ -117,16 +117,16 @@ it(tests, "persists inbound state using transform 'in' function", async () => {
       return Ok(undefined);
     },
   };
-  
+
   const transform = createTransform<State>(initialState);
 
-  transform.in= (state: State) => {
-    return { ...state, token: state.token.split("").reverse().join("") };
+  transform.in = function* (state) {
+    return { ...state, token: state?.token?.split("").reverse().join("") };
   };
 
   const persistor = createPersistor<State>({
     adapter,
-    allowlist: ["token", "cache"], 
+    allowlist: ["token", "cache"],
     transform
   });
 
@@ -152,7 +152,7 @@ it(tests, "persists inbound state using transform 'in' function", async () => {
   });
   asserts.assertEquals(
     ls,
-    '{"token":"4321","cache":{}}', 
+    '{"token":"4321","cache":{}}',
   );
 });
 
@@ -178,10 +178,10 @@ it(tests, "persists inbound state using tranform setInTransformer", async () => 
       return Ok(undefined);
     },
   };
-  
 
-  function revertToken(state: State): Partial<State> {
-    return { ...state, token: state.token.split("").reverse().join("") };
+  function* revertToken(state: Partial<State>) {
+    const res = { ...state, token: state?.token?.split("").reverse().join("") };
+    return res;
   }
   const transform = createTransform<State>(initialState);
   transform.setInTransformer(revertToken);
@@ -215,7 +215,7 @@ it(tests, "persists inbound state using tranform setInTransformer", async () => 
   });
   asserts.assertEquals(
     ls,
-    '{"token":"4321","cache":{}}', 
+    '{"token":"4321","cache":{}}',
   );
 });
 
@@ -241,29 +241,29 @@ it(tests, "persists a filtered nested part of a slice", async () => {
     },
   };
 
- 
-  function pickLatestOfLoadersAandC(state: State): Partial<State> {
-    const nextState = { ...state }; 
-  
+
+  function* pickLatestOfLoadersAandC(state: Partial<State>): Operation<Partial<State>> {
+    const nextState = { ...state };
+
     if (state.loaders) {
-      const maxLastRun: Record<string, number> = {}; 
-      const entryWithMaxLastRun: Record<string, LoaderItemState<any>> = {}; 
-  
+      const maxLastRun: Record<string, number> = {};
+      const entryWithMaxLastRun: Record<string, LoaderItemState<any>> = {};
+
       for (const entryKey in state.loaders) {
         const entry = state.loaders[entryKey] as LoaderItemState<any>;
-        const sliceName = entryKey.split("|")[0].trim(); 
-        if (sliceName.includes('A') || sliceName.includes('C')) {          
+        const sliceName = entryKey.split("|")[0].trim();
+        if (sliceName.includes('A') || sliceName.includes('C')) {
           if (!maxLastRun[sliceName] || entry.lastRun > maxLastRun[sliceName]) {
             maxLastRun[sliceName] = entry.lastRun;
-            entryWithMaxLastRun[sliceName] = entry; 
+            entryWithMaxLastRun[sliceName] = entry;
           }
         }
       }
-      nextState.loaders = entryWithMaxLastRun; 
+      nextState.loaders = entryWithMaxLastRun;
     }
     return nextState;
   }
-  
+
 
   const transform = createTransform<State>(initialState);
   transform.setInTransformer(pickLatestOfLoadersAandC);
@@ -305,7 +305,7 @@ it(tests, "persists a filtered nested part of a slice", async () => {
   });
   asserts.assertStringIncludes(
     ls,
-    '{"token":"1"', 
+    '{"token":"1"',
   );
   asserts.assertStringIncludes(
     ls,
@@ -315,7 +315,7 @@ it(tests, "persists a filtered nested part of a slice", async () => {
     ls,
     '"id":"C"',
   );
-   asserts.assertNotMatch(
+  asserts.assertNotMatch(
     ls,
     /"message":"loading A-first"/,
   );

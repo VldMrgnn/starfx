@@ -1,4 +1,4 @@
-import { Err, Ok, Operation, Result } from '../deps.ts';
+import { call, Callable, Err, Ok, Operation, Result, sleep } from '../deps.ts';
 import { select, updateStore } from './fx.ts';
 
 import type { AnyState, Next } from "../types.ts";
@@ -20,28 +20,40 @@ export interface PersistProps<S extends AnyState> {
   rehydrate: () => Operation<Result<unknown>>;
   transform?: TransformFunctions<S>;
 }
-type TransformFunctions<S> = {
-  in: (state: S) => Partial<S>;
-  out: (state: S) => Partial<S>;
-};
+
+interface TransformFunctions<S extends AnyState> {
+  in(s:Partial<S>): Operation<Partial<S>>;
+  out(s: Partial<S>):Operation<Partial<S>>;
+}
 
 export function createTransform<S extends AnyState>(initialState: Partial<S>) {
-   const transformers: TransformFunctions<S> = {
-    in: (_: S) => initialState,
-    out: (_: S) => initialState,
-  };
+  const state = initialState;
 
-  const setInTransformer = (transformer: (state: S) => Partial<S>): void => {
+  const transformers: TransformFunctions<S> = {
+    in: function* (_: Partial<S>): Operation<Partial<S>> {
+      return state;
+
+    },
+    out: function* (_: Partial<S>): Operation<Partial<S>> {
+      return state;
+    }
+  };
+  const setInTransformer = function (transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {
     transformers.in = transformer;
   };
-
-  const setOutTransformer = (transformer: (state: S) => Partial<S>): void => {
+  const setOutTransformer = function(transformer: (fn: Partial<S>) => Operation<Partial<S>>): void {
     transformers.out = transformer;
   };
 
-  const inTransformer = (state: S): Partial<S> => transformers.in(state);
+  const inTransformer = function* (state: Partial<S>): Operation<Partial<S>> {
+    const result =  yield* transformers.in(state);
+    return result;
+  };
 
-  const outTransformer = (state: S): Partial<S> => transformers.out(state);
+  const outTransformer = function* (state: Partial<S>): Operation<Partial<S>> {
+    const result =  yield* transformers.out(state);
+    return result;
+  };
 
   return {
     in: inTransformer,
@@ -50,7 +62,6 @@ export function createTransform<S extends AnyState>(initialState: Partial<S>) {
     setOutTransformer,
   };
 }
-
 export function createLocalStorageAdapter<S extends AnyState>(): PersistAdapter<
   S
 > {
@@ -95,7 +106,7 @@ export function createPersistor<S extends AnyState>(
     let stateFromStorage = persistedState.value as Partial<S>;
 
     if (transform) {
-      stateFromStorage = transform.out(stateFromStorage as S);
+      stateFromStorage = yield* call(()=> transform.out(stateFromStorage));
     }
 
     const state = yield* select((s) => s);
@@ -128,7 +139,7 @@ export function persistStoreMdw<S extends AnyState>(
 
     let transformedState: Partial<S> = state;
     if (transform) {
-      transformedState = transform.in(state);
+      transformedState =yield* call(transform.in(state));
     }
 
     // empty allowlist list means save entire state
