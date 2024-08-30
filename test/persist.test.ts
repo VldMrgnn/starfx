@@ -262,7 +262,7 @@ it(tests, "persists a filtered nested part of a slice", async () => {
 
       for (const entryKey in state.loaders) {
         const entry = state.loaders[entryKey] as LoaderItemState<any>;
-        const sliceName = entryKey.split("|")[0].trim();
+        const sliceName = entryKey.split("[")[0].trim();
         if (sliceName.includes("A") || sliceName.includes("C")) {
           if (!maxLastRun[sliceName] || entry.lastRun > maxLastRun[sliceName]) {
             maxLastRun[sliceName] = entry.lastRun;
@@ -748,9 +748,65 @@ it("persists outbound state using tranform setOutTransformer", async () => {
   );
 });
 
-// it("persists outbound a filtered nested part of a slice", async () => {
-//   asserts.assertEquals(1, 1);
-// });
+it(tests, "persists outbound a filtered nested part of a slice", async () => {
+  const [schema, initialState] = createSchema({
+    token: slice.str(),
+    loaders: slice.loaders(),
+    cache: slice.table({ empty: {} }),
+  });
+  type State = typeof initialState;
+  let ls =
+    '{"loaders":{"A":{"id":"A [POST]|5678","status":"loading","message":"loading A-second","lastRun":1725048721168,"lastSuccess":0,"meta":{"flag":"01234_FLAG_PERSISTED"}}}}';
+
+  const adapter: PersistAdapter<State> = {
+    getItem: function* (_: string) {
+      return Ok(JSON.parse(ls));
+    },
+    setItem: function* (_: string, s: Partial<State>) {
+      ls = JSON.stringify(s);
+      return Ok(undefined);
+    },
+    removeItem: function* (_: string) {
+      return Ok(undefined);
+    },
+  };
+
+  function* extractMetaAndSetToken(
+    state: Partial<State>,
+  ): Operation<Partial<State>> {
+    const nextState = { ...state };
+    if (state.loaders) {
+      const savedLoader = state.loaders["A"];
+      if (savedLoader?.meta?.flag) {
+        nextState.token = savedLoader.meta.flag;
+      }
+    }
+    return nextState;
+  }
+
+  const transform = createTransform<State>();
+  transform.setOutTransformer(extractMetaAndSetToken);
+
+  const persistor = createPersistor<State>({
+    adapter,
+    transform,
+  });
+
+  const mdw = persistStoreMdw(persistor);
+  const store = createStore({
+    initialState,
+    middleware: [mdw],
+  });
+
+  await store.run(function* (): Operation<void> {
+    yield* persistor.rehydrate();
+    yield* schema.update(schema.loaders.success({ id: PERSIST_LOADER_ID }));
+  });
+  asserts.assertEquals(
+    store.getState().token,
+    "01234_FLAG_PERSISTED",
+  );
+});
 
 // it("the outbound transformer can be reset during runtime", async () => {
 //   asserts.assertEquals(1, 1);
