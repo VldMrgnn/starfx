@@ -18,45 +18,38 @@ export interface PersistProps<S extends AnyState> {
   key: string;
   reconciler: (original: S, rehydrated: Partial<S>) => S;
   rehydrate: () => Operation<Result<unknown>>;
-  transform?: Transform<S>;
+  transform?: TransformFunctions<S>;
 }
+type TransformFunctions<S> = {
+  in: (state: S) => Partial<S>;
+  out: (state: S) => Partial<S>;
+};
 
-class Transform<S extends AnyState> {
-  private defaults: Partial<S>;
-  public transformers: {
-    in: (state: S) => Partial<S>;
-    out: (state: S) => Partial<S>;
+export function createTransform<S extends AnyState>(initialState: Partial<S>) {
+   const transformers: TransformFunctions<S> = {
+    in: (_: S) => initialState,
+    out: (_: S) => initialState,
   };
 
-  constructor(state: Partial<S>) {
-    this.defaults = state;
-    this.transformers = {
-      in: (_: S): Partial<S> => state,
-      out: (_: S): Partial<S> => state
-    };
-  }
+  const setInTransformer = (transformer: (state: S) => Partial<S>): void => {
+    transformers.in = transformer;
+  };
 
-  in(state: S): Partial<S> {
-    return this.transformers.in(state);
-  }
+  const setOutTransformer = (transformer: (state: S) => Partial<S>): void => {
+    transformers.out = transformer;
+  };
 
-  out(state: S): Partial<S> {
-    return this.transformers.out(state);
-  }
+  const inTransformer = (state: S): Partial<S> => transformers.in(state);
 
-  setInTransformer(transformer: (state: S) => Partial<S>): void {
-    this.transformers.in = transformer;
-  }
+  const outTransformer = (state: S): Partial<S> => transformers.out(state);
 
-  setOutTransformer(transformer: (state: S) => Partial<S>): void {
-    this.transformers.out = transformer;
-  }
+  return {
+    in: inTransformer,
+    out: outTransformer,
+    setInTransformer,
+    setOutTransformer,
+  };
 }
-
-export function createTransform<S extends AnyState>(state: Partial<S>): Transform<S> {
-  return new Transform(state);
-}
-
 
 export function createLocalStorageAdapter<S extends AnyState>(): PersistAdapter<
   S
