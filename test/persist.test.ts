@@ -332,8 +332,8 @@ it(tests, "persists a filtered nested part of a slice", async () => {
 //  prooven by the other tests
 // });
 
-it(tests, "handles the empty state correctly", async () => {});
-it(tests, "handles errors gracefully", async () => {});
+// it(tests, "handles the empty state correctly", async () => {});
+// it(tests, "handles errors gracefully", async () => {});
 //it(tests, "applies the transformer before persisting state" , async () => {});
 
 // related to allowlist (if we transform/derive using the value of a slice that is not in the allow list)
