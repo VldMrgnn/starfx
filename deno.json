@@ -3,7 +3,7 @@
     "types": "deno run --allow-write ./api-type-template.ts",
     "npm": "deno run -A ./npm.ts",
     "test": "deno test --allow-env --allow-read",
-    "test-filter" : "deno test --allow-env --allow-read --filter",
+    "test-filter": "deno test --allow-env --allow-read --filter",
     "sync-build-to": "deno run -A ./scripts/sync.ts"
   },
   "lint": {
