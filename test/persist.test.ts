@@ -808,7 +808,7 @@ it(tests, "persists outbound a filtered nested part of a slice", async () => {
   );
 });
 
-it("the outbound transformer can be reset during runtime", async () => {
+it(tests, "the outbound transformer can be reset during runtime", async () => {
   const [schema, initialState] = createSchema({
     token: slice.str(),
     counter: slice.num(0),
@@ -816,7 +816,7 @@ it("the outbound transformer can be reset during runtime", async () => {
     cache: slice.table({ empty: {} }),
   });
   type State = typeof initialState;
-  let ls = '{"token": "01234"}';
+  let ls = '{"token": "_1234"}';
 
   const adapter: PersistAdapter<State> = {
     getItem: function* (_: string) {
@@ -834,8 +834,14 @@ it("the outbound transformer can be reset during runtime", async () => {
   function* revertToken(state: Partial<State>) {
     return { ...state, token: state?.token?.split("").reverse().join("") };
   }
+  function* postpendToken(state: Partial<State>) {
+    return {
+      ...state,
+      token: `${state?.token}56789`,
+    };
+  }
   const transform = createTransform<State>();
-  transform.out = revertToken;
+  transform.setOutTransformer(revertToken);
 
   const persistor = createPersistor<State>({
     adapter,
@@ -856,15 +862,8 @@ it("the outbound transformer can be reset during runtime", async () => {
 
   asserts.assertEquals(
     store.getState().token,
-    "43210",
+    "4321_",
   );
-
-  transform.out = function* (state) {
-    return {
-      ...state,
-      token: `${state?.token}56789`,
-    };
-  };
 
   await store.run(function* (): Operation<void> {
     yield* schema.update(schema.token.set("01234"));
@@ -872,8 +871,15 @@ it("the outbound transformer can be reset during runtime", async () => {
 
   asserts.assertEquals(
     ls,
-    '{"token":"0123456789"}',
+    '{"token":"01234"}',
   );
+
+  transform.setOutTransformer(postpendToken);
+
+  await store.run(function* (): Operation<void> {
+    yield* persistor.rehydrate();
+    yield* schema.update(schema.loaders.success({ id: PERSIST_LOADER_ID }));
+  });
 
   asserts.assertEquals(
     store.getState().token,
