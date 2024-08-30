@@ -500,8 +500,6 @@ it(
       yield* schema.update(schema.loaders.success({ id: PERSIST_LOADER_ID }));
       yield* schema.update(schema.token.set("1234"));
     });
-
-    console.log("ls", ls);
     asserts.assertEquals(
       store.getState().token,
       "1234",
@@ -568,14 +566,89 @@ it(
   },
 );
 
-it("the inbound transformer can be redifined during runtime", async () => {
+it(
+  tests,
+  "the inbound transformer can be redifined during runtime",
+  async () => {
+    const [schema, initialState] = createSchema({
+      token: slice.str(),
+      loaders: slice.loaders(),
+      cache: slice.table({ empty: {} }),
+    });
+    type State = typeof initialState;
+    let ls = "{}";
+    const adapter: PersistAdapter<State> = {
+      getItem: function* (_: string) {
+        return Ok(JSON.parse(ls));
+      },
+      setItem: function* (_: string, s: Partial<State>) {
+        ls = JSON.stringify(s);
+        return Ok(undefined);
+      },
+      removeItem: function* (_: string) {
+        return Ok(undefined);
+      },
+    };
+
+    const transform = createTransform<State>();
+    transform.setInTransformer(function* (state) {
+      return {
+        ...state,
+        token: `${state?.token?.split("").reverse().join("")}`,
+      };
+    });
+
+    const persistor = createPersistor<State>({
+      adapter,
+      allowlist: ["token"],
+      transform,
+    });
+
+    const mdw = persistStoreMdw(persistor);
+    const store = createStore({
+      initialState,
+      middleware: [mdw],
+    });
+
+    await store.run(function* (): Operation<void> {
+      yield* persistor.rehydrate();
+      yield* schema.update(schema.loaders.success({ id: PERSIST_LOADER_ID }));
+      yield* schema.update(schema.token.set("01234"));
+    });
+
+    asserts.assertEquals(
+      ls,
+      '{"token":"43210"}',
+    );
+
+    transform.setInTransformer(function* (state) {
+      return {
+        ...state,
+        token: `${state?.token}56789`,
+      };
+    });
+
+    await store.run(function* (): Operation<void> {
+      yield* schema.update(schema.token.set("01234"));
+    });
+
+    asserts.assertEquals(
+      ls,
+      '{"token":"0123456789"}',
+    );
+  },
+);
+
+it(tests, "persists state using transform 'out' function", async () => {
   const [schema, initialState] = createSchema({
     token: slice.str(),
+    counter: slice.num(0),
     loaders: slice.loaders(),
     cache: slice.table({ empty: {} }),
   });
   type State = typeof initialState;
-  let ls = "{}";
+  let ls = '{"token": "01234"}';
+
   const adapter: PersistAdapter<State> = {
     getItem: function* (_: string) {
       return Ok(JSON.parse(ls));
@@ -590,11 +663,8 @@ it("the inbound transformer can be redifined during runtime", async () => {
   };
 
   const transform = createTransform<State>();
-  transform.setInTransformer(function* (state) {
-    return {
-      ...state,
-      token: `${state?.token?.split("").reverse().join("")}`,
-    };
+  transform.setOutTransformer(function* (state) {
+    return { ...state, token: state?.token?.split("").reverse().join("") };
   });
 
   const persistor = createPersistor<State>({
@@ -612,34 +682,13 @@ it("the inbound transformer can be redifined during runtime", async () => {
   await store.run(function* (): Operation<void> {
     yield* persistor.rehydrate();
     yield* schema.update(schema.loaders.success({ id: PERSIST_LOADER_ID }));
-    yield* schema.update(schema.token.set("01234"));
   });
 
   asserts.assertEquals(
-    ls,
-    '{"token":"43210"}',
-  );
-
-  transform.setInTransformer(function* (state) {
-    return {
-      ...state,
-      token: `${state?.token}56789`,
-    };
-  });
-
-  await store.run(function* (): Operation<void> {
-    yield* schema.update(schema.token.set("01234"));
-  });
-
-  asserts.assertEquals(
-    ls,
-    '{"token":"0123456789"}',
+    store.getState().token,
+    "43210",
   );
 });
-
-// it("persists state using transform 'out' function", async () => {
-//   asserts.assertEquals(1, 1);
-// });
 
 // it("persists outbound state using tranform setOutTransformer", async () => {
 //   asserts.assertEquals(1, 1);
