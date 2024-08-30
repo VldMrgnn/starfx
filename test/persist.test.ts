@@ -662,10 +662,11 @@ it(tests, "persists state using transform 'out' function", async () => {
     },
   };
 
-  const transform = createTransform<State>();
-  transform.setOutTransformer(function* (state) {
+  function* revertToken(state: Partial<State>) {
     return { ...state, token: state?.token?.split("").reverse().join("") };
-  });
+  }
+  const transform = createTransform<State>();
+  transform.out = revertToken;
 
   const persistor = createPersistor<State>({
     adapter,
@@ -690,9 +691,62 @@ it(tests, "persists state using transform 'out' function", async () => {
   );
 });
 
-// it("persists outbound state using tranform setOutTransformer", async () => {
-//   asserts.assertEquals(1, 1);
-// });
+it("persists outbound state using tranform setOutTransformer", async () => {
+  const [schema, initialState] = createSchema({
+    token: slice.str(),
+    counter: slice.num(0),
+    loaders: slice.loaders(),
+    cache: slice.table({ empty: {} }),
+  });
+  type State = typeof initialState;
+  let ls = '{"token": "43210"}';
+
+  const adapter: PersistAdapter<State> = {
+    getItem: function* (_: string) {
+      return Ok(JSON.parse(ls));
+    },
+    setItem: function* (_: string, s: Partial<State>) {
+      ls = JSON.stringify(s);
+      return Ok(undefined);
+    },
+    removeItem: function* (_: string) {
+      return Ok(undefined);
+    },
+  };
+
+  function* revertToken(state: Partial<State>) {
+    return {
+      ...state,
+      token: (["5"].concat(...state?.token?.split("") || [])).reverse().join(
+        "",
+      ),
+    };
+  }
+  const transform = createTransform<State>();
+  transform.setOutTransformer(revertToken);
+
+  const persistor = createPersistor<State>({
+    adapter,
+    allowlist: ["token"],
+    transform,
+  });
+
+  const mdw = persistStoreMdw(persistor);
+  const store = createStore({
+    initialState,
+    middleware: [mdw],
+  });
+
+  await store.run(function* (): Operation<void> {
+    yield* persistor.rehydrate();
+    yield* schema.update(schema.loaders.success({ id: PERSIST_LOADER_ID }));
+  });
+
+  asserts.assertEquals(
+    ls,
+    '{"token":"012345"}',
+  );
+});
 
 // it("persists outbound a filtered nested part of a slice", async () => {
 //   asserts.assertEquals(1, 1);
