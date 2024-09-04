@@ -1,5 +1,5 @@
+import { ActionWithPayload, createApi } from "../mod.ts";
 import { afterAll, beforeAll, describe, expect, it } from "../test.ts";
-import { type ActionWithPayload, createApi } from "../mod.ts";
 
 const getKeyOf = (action: ActionWithPayload<{ key: string }>): string =>
   action.payload.key;
@@ -361,3 +361,52 @@ it(
     expect(getKeyOf(aObjects1)).not.toEqual(getKeyOf(aObjects5));
   },
 );
+
+it(tests, "ensures key identity with different order of keys", () => {
+  const api = createApi();
+  api.use(api.routes());
+  type Ip0 = {
+    a: string;
+    b: string;
+    c: string;
+    d: { string1: string; date1: Date }[];
+  };
+  const action = api.get<Ip0>(
+    "/users/:a/:b/:c",
+    function* (ctx, next) {
+      ctx.request = {
+        method: "GET",
+      };
+      yield* next();
+    },
+  );
+  const sendFirst = action({
+    a: "1",
+    b: "2",
+    c: "3",
+    d: [{ string1: "abcdefghijklmnoprstqz", date1: new Date("1973-05-24") }, {
+      string1: "1234",
+      date1: new Date("2024-09-04"),
+    }],
+  });
+  const sendSecond = action({
+    b: "2",
+    c: "3",
+    a: "1",
+    d: [{ string1: "abcdefghijklmnoprstqz", date1: new Date("1973-05-24") }, {
+      string1: "1234",
+      date1: new Date("2024-09-04"),
+    }],
+  });
+  const sendThird = action({
+    c: "3",
+    a: "1",
+    b: "2",
+    d: [{ string1: "abcdefghijklmnoprstqz", date1: new Date("1973-05-24") }, {
+      string1: "1234",
+      date1: new Date("2024-09-04"),
+    }],
+  });
+  expect(getKeyOf(sendFirst)).toEqual(getKeyOf(sendSecond));
+  expect(getKeyOf(sendFirst)).toEqual(getKeyOf(sendThird));
+});

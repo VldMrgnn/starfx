@@ -1,28 +1,28 @@
 import { isObject } from "./util.ts";
 
-// deno-lint-ignore no-explicit-any
-const deepSortObject = (opts?: any) => {
-  if (!isObject(opts)) return opts;
-  return Object.keys(opts)
+const deepSortObject = (obj: unknown): unknown => {
+  if (!isObject(obj)) return obj;
+  const sortedObj: Record<string, unknown> = {};
+  Object.keys(obj as object)
     .sort()
-    .reduce<Record<string, unknown>>((res, key) => {
-      res[`${key}`] = opts[key];
-      if (opts[key] && isObject(opts[key])) {
-        res[`${key}`] = deepSortObject(opts[key]);
-      }
-      return res;
-    }, {});
+    .forEach((key) => {
+      const value = (obj as Record<string, unknown>)[key];
+      sortedObj[key] = isObject(value) ? deepSortObject(value) : value;
+    });
+  return sortedObj;
 };
 
-function padStart(hash: string, len: number) {
-  while (hash.length < len) {
-    hash = "0" + hash;
-  }
-  return hash;
-}
+const padStart = (hash: string, len: number): string => {
+  return hash.padStart(len, "0");
+};
 
-// https://gist.github.com/iperelivskiy/4110988
-const tinySimpleHash = (s: string) => {
+/**
+ * A simple hash function based on a tiny algorithm for quick hashing.
+ * https://gist.github.com/iperelivskiy/4110988
+ * @param {string} s - The input string to hash.
+ * @returns {number} - The resulting hash.
+ */
+const tinySimpleHash = (s: string): number => {
   let h = 9;
   for (let i = 0; i < s.length;) {
     h = Math.imul(h ^ s.charCodeAt(i++), 9 ** 9);
@@ -31,15 +31,19 @@ const tinySimpleHash = (s: string) => {
 };
 
 /**
- * This function used to set `ctx.key`
+ * Creates a unique key based on a name and optional payload.
+ * @param {string} name - The base name for the key.
+ * @param {unknown} [payload] - Optional payload to be included in the key.
+ * @returns {string} - The generated key.
  */
-// deno-lint-ignore no-explicit-any
-export const createKey = (name: string, payload?: any) => {
-  const normJsonString = typeof payload !== "undefined"
+export const createKey = (name: string, payload?: unknown): string => {
+  const normalizedPayload = typeof payload !== "undefined"
     ? JSON.stringify(deepSortObject(payload))
     : "";
-  const hash = normJsonString
-    ? padStart(tinySimpleHash(normJsonString).toString(16), 8)
+
+  const hash = normalizedPayload
+    ? padStart(tinySimpleHash(normalizedPayload).toString(16), 8)
     : "";
+
   return hash ? `${name}|${hash}` : name;
 };
