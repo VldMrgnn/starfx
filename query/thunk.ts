@@ -1,10 +1,10 @@
-import { ActionContext, API_ACTION_PREFIX, takeEvery } from "../action.ts";
-import { compose } from "../compose.ts";
-import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
-import { keepAlive, supervise } from "../fx/mod.ts";
-import { signalMap } from "../mod.ts";
-import { createKey } from "./create-key.ts";
-import { generateShortUUID, isFn, isObject } from "./util.ts";
+import { ActionContext, API_ACTION_PREFIX, takeEvery } from '../action.ts';
+import { compose } from '../compose.ts';
+import { Callable, ensure, Ok, Operation, Signal } from '../deps.ts';
+import { keepAlive, supervise } from '../fx/mod.ts';
+import { signalMap } from '../mod.ts';
+import { createKey } from './create-key.ts';
+import { generateShortUUID, isFn, isObject } from './util.ts';
 
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import type {
@@ -206,8 +206,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     visors[name] = curVisor;
 
     // If signal is available, register immediately for all the stores registered, otherwise defer
-    if (signal) {
-      const allSignals = signalMap.getSignalsByThunk(thunkId);
+    const allSignals = signalMap.getSignalsByThunk(thunkId);
       for (const sig of allSignals) {
         const thatStoreId = signalMap.getStoreId(sig);
         if (thatStoreId) {
@@ -218,8 +217,8 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
             payload: curVisor,
           });
         }
-      }
-    }
+     }
+    
 
     const errMsg =
       `[${name}] is being called before its thunk has been registered. ` +
