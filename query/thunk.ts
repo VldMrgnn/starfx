@@ -1,6 +1,6 @@
 import { ActionContext, API_ACTION_PREFIX, takeEvery } from "../action.ts";
 import { compose } from "../compose.ts";
-import { Callable, Ok, Operation, Signal } from "../deps.ts";
+import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
 import { keepAlive, supervise } from "../fx/mod.ts";
 import { createKey } from "./create-key.ts";
 import { isFn, isObject } from "./util.ts";
@@ -82,6 +82,14 @@ export interface ThunksApi<Ctx extends ThunkCtx> {
   ): CreateActionWithPayload<Gtx, P>;
 }
 
+function generateUUID() {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 /**
  * Creates a middleware pipeline.
  *
@@ -131,9 +139,8 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   const actionMap: {
     [key: string]: CreateActionWithPayload<Ctx, any>;
   } = {};
-  const thunkId = `${Date.now().toString(36)}-${
-    Math.random().toString(36).substring(2, 11)
-  }`;
+  const thunkUniqueType =
+    `${API_ACTION_PREFIX}REGISTER_THUNK_${generateUUID()}`;
   let hasRegistered = false;
 
   function* defaultMiddleware(_: Ctx, next: Next) {
@@ -210,7 +217,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     // If signal is available, register immediately, otherwise defer
     if (signal) {
       signal.send({
-        type: `${API_ACTION_PREFIX}REGISTER_THUNK_${thunkId}`,
+        type: thunkUniqueType,
         payload: curVisor,
       });
     }
@@ -257,6 +264,9 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
       console.warn("This thunk instance is already registered.");
       return;
     }
+    yield* ensure(() => {
+      hasRegistered = false;
+    });
     hasRegistered = true;
     signal = yield* ActionContext;
 
@@ -265,7 +275,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
 
     // Spawn a watcher for further thunk matchingPairs
     yield* takeEvery(
-      `${API_ACTION_PREFIX}REGISTER_THUNK_${thunkId}`,
+      thunkUniqueType,
       watcher as any,
     );
   }
