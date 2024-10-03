@@ -1,14 +1,20 @@
-import { ActionContext, API_ACTION_PREFIX, emit } from '../action.ts';
-import { BaseMiddleware, compose } from '../compose.ts';
+import { ActionContext, API_ACTION_PREFIX, emit } from "../action.ts";
+import { BaseMiddleware, compose } from "../compose.ts";
 import {
-    createScope, createSignal, enablePatches, Ok, produceWithPatches, Scope
-} from '../deps.ts';
-import { generateUUID } from '../query/util.ts';
-import { StoreContext, StoreUpdateContext } from './context.ts';
-import { createRun } from './run.ts';
+  createScope,
+  createSignal,
+  enablePatches,
+  Ok,
+  produceWithPatches,
+  Scope,
+} from "../deps.ts";
+import { generateShortUUID } from "../query/util.ts";
+import { createSignalMap } from "../signal-map.ts";
+import { StoreContext, StoreUpdateContext } from "./context.ts";
+import { createRun } from "./run.ts";
 
 import type { AnyAction, AnyState, Next } from "../types.ts";
-import type { Signal } from "../deps.ts";
+
 import type { FxStore, Listener, StoreUpdater, UpdaterCtx } from "./types.ts";
 const stubMsg = "This is merely a stub, not implemented";
 
@@ -28,22 +34,6 @@ export interface CreateStore<S extends AnyState> {
   scope?: Scope;
   initialState: S;
   middleware?: BaseMiddleware<UpdaterCtx<S>>[];
-}
-
-const signalStoreMap = new WeakMap<Signal<AnyAction, void>, string>();
-
-export function createSignalMap() {
-  return {
-    addSignal: (signal: Signal<AnyAction, void>, storeId: string) => {
-      signalStoreMap.set(signal, storeId);
-    },
-    getStoreId: (signal: Signal<AnyAction, void>): string | undefined => {
-      return signalStoreMap.get(signal);
-    },
-    hasSignal: (signal: Signal<AnyAction, void>): boolean => {
-      return signalStoreMap.has(signal);
-    },
-  };
 }
 
 export const signalMap = createSignalMap();
@@ -66,8 +56,8 @@ export function createStore<S extends AnyState>({
   enablePatches();
 
   const signal = createSignal<AnyAction, void>();
-  signalMap.addSignal(signal, generateUUID());
   scope.set(ActionContext, signal);
+  signalMap.addSignal(signal, generateShortUUID());
 
   function getScope() {
     return scope;

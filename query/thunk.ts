@@ -4,7 +4,7 @@ import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
 import { keepAlive, supervise } from "../fx/mod.ts";
 import { signalMap } from "../mod.ts";
 import { createKey } from "./create-key.ts";
-import { generateUUID, isFn, isObject } from "./util.ts";
+import { generateShortUUID, isFn, isObject } from "./util.ts";
 
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import type {
@@ -132,8 +132,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   const actionMap: {
     [key: string]: CreateActionWithPayload<Ctx, any>;
   } = {};
-  const thunkId = `${generateUUID()}`;
-  let hasRegistered = false;
+  const thunkId = `${generateShortUUID()}`;
 
   function* defaultMiddleware(_: Ctx, next: Next) {
     yield* next();
@@ -206,13 +205,20 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
 
     visors[name] = curVisor;
 
-    // If signal is available, register immediately, otherwise defer
+    // If signal is available, register immediately for all the stores registered, otherwise defer
     if (signal) {
-      const storeId = signalMap.getStoreId(signal);
-      signal.send({
-        type: `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
-        payload: curVisor,
-      });
+      const allSignals = signalMap.getSignalsByThunk(thunkId);
+      for (const sig of allSignals) {
+        const thatStoreId = signalMap.getStoreId(sig);
+        if (thatStoreId) {
+          const acionName =
+            `${API_ACTION_PREFIX}REGISTER_THUNK_${thatStoreId}_${thunkId}`;
+          sig.send({
+            type: acionName,
+            payload: curVisor,
+          });
+        }
+      }
     }
 
     const errMsg =
@@ -253,24 +259,37 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   }
 
   function* register() {
-    if (hasRegistered) {
+    signal = yield* ActionContext;
+
+    if (!signal) {
+      console.warn("Signal is not available");
+      return;
+    }
+    const isRegistered = signalMap.isThunkRegisteredOnSignal(signal, thunkId);
+    if (isRegistered) {
       console.warn("This thunk instance is already registered.");
       return;
     }
-    hasRegistered = true;
-    signal = yield* ActionContext;
+    signalMap.registerThunkOnSignal(signal, thunkId);
+
+    const storeId = signalMap.getStoreId(signal);
+    const storeThunkAction =
+      `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`;
 
     yield* ensure(function* () {
-      hasRegistered = false;
+      signalMap.removeThunkOverall(thunkId);
     });
 
     // Register any thunks created after signal is available
     yield* keepAlive(Object.values(visors));
 
     // Spawn a watcher for further thunk matchingPairs
-    const storeId = signalMap.getStoreId(signal);
+
+    if (!storeId) {
+      throw new Error("Store ID is not available  in signal");
+    }
     yield* takeEvery(
-      `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
+      storeThunkAction,
       watcher as any,
     );
   }
