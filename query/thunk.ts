@@ -141,7 +141,9 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   } = {};
   const thunkUniqueType =
     `${API_ACTION_PREFIX}REGISTER_THUNK_${generateUUID()}`;
-  let hasRegistered = false;
+
+  let isRegistered = false;
+  let hasBeenUnregistered = false;
 
   function* defaultMiddleware(_: Ctx, next: Next) {
     yield* next();
@@ -152,6 +154,13 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   function* onApi<P extends CreateActionPayload>(
     action: ActionWithPayload<P>,
   ): Operation<Ctx> {
+    //if our initial registration exited
+    if (
+      isRegistered === false &&
+      hasBeenUnregistered === true
+    ) {
+      yield* register();
+    }
     const { name, key, options } = action.payload;
     const actionFn = actionMap[name];
     const ctx = {
@@ -260,14 +269,17 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   }
 
   function* register() {
-    if (hasRegistered) {
+    if (isRegistered === true) {
       console.warn("This thunk instance is already registered.");
       return;
     }
     yield* ensure(() => {
-      hasRegistered = false;
+      isRegistered = false;
+      //we mark that we already regtistered manually once and exited. Now allow self-register;
+      hasBeenUnregistered = true;
     });
-    hasRegistered = true;
+    isRegistered = true;
+
     signal = yield* ActionContext;
 
     // Register any thunks created after signal is available
