@@ -1,16 +1,11 @@
-import { ActionContext, API_ACTION_PREFIX, emit } from "../action.ts";
-import { BaseMiddleware, compose } from "../compose.ts";
+import { ActionContext, API_ACTION_PREFIX, emit } from '../action.ts';
+import { BaseMiddleware, compose } from '../compose.ts';
 import {
-  createScope,
-  createSignal,
-  enablePatches,
-  Ok,
-  produceWithPatches,
-  Scope,
-} from "../deps.ts";
-import { generateUUID } from "../query/util.ts";
-import { StoreContext, StoreUpdateContext } from "./context.ts";
-import { createRun } from "./run.ts";
+    createScope, createSignal, enablePatches, Ok, produceWithPatches, Scope
+} from '../deps.ts';
+import { generateUUID } from '../query/util.ts';
+import { StoreContext, StoreUpdateContext } from './context.ts';
+import { createRun } from './run.ts';
 
 import type { AnyAction, AnyState, Next } from "../types.ts";
 import type { Signal } from "../deps.ts";
@@ -35,17 +30,17 @@ export interface CreateStore<S extends AnyState> {
   middleware?: BaseMiddleware<UpdaterCtx<S>>[];
 }
 
-const signalStoreMap = new WeakMap<Signal<any, any>, string>();
+const signalStoreMap = new WeakMap<Signal<AnyAction, void>, string>();
 
 export function createSignalMap() {
   return {
-    addSignal: (signal: Signal<any, any>, storeId: string) => {
+    addSignal: (signal: Signal<AnyAction, void>, storeId: string) => {
       signalStoreMap.set(signal, storeId);
     },
-    getStoreId: (signal: Signal<any, any>): string | undefined => {
+    getStoreId: (signal: Signal<AnyAction, void>): string | undefined => {
       return signalStoreMap.get(signal);
     },
-    hasSignal: (signal: Signal<any, any>): boolean => {
+    hasSignal: (signal: Signal<AnyAction, void>): boolean => {
       return signalStoreMap.has(signal);
     },
   };
