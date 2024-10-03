@@ -2,8 +2,9 @@ import { ActionContext, API_ACTION_PREFIX, takeEvery } from "../action.ts";
 import { compose } from "../compose.ts";
 import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
 import { keepAlive, supervise } from "../fx/mod.ts";
+import { signalMap } from "../mod.ts";
 import { createKey } from "./create-key.ts";
-import { isFn, isObject } from "./util.ts";
+import { generateUUID, isFn, isObject } from "./util.ts";
 
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import type {
@@ -131,9 +132,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   const actionMap: {
     [key: string]: CreateActionWithPayload<Ctx, any>;
   } = {};
-  const thunkId = `${Date.now().toString(36)}-${
-    Math.random().toString(36).substring(2, 11)
-  }`;
+  const thunkId = `${generateUUID()}`;
   let hasRegistered = false;
 
   function* defaultMiddleware(_: Ctx, next: Next) {
@@ -209,8 +208,9 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
 
     // If signal is available, register immediately, otherwise defer
     if (signal) {
+      const storeId = signalMap.getStoreId(signal);
       signal.send({
-        type: `${API_ACTION_PREFIX}REGISTER_THUNK_${thunkId}`,
+        type: `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
         payload: curVisor,
       });
     }
@@ -268,8 +268,9 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     yield* keepAlive(Object.values(visors));
 
     // Spawn a watcher for further thunk matchingPairs
+    const storeId = signalMap.getStoreId(signal);
     yield* takeEvery(
-      `${API_ACTION_PREFIX}REGISTER_THUNK_${thunkId}`,
+      `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
       watcher as any,
     );
   }

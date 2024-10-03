@@ -1,3 +1,5 @@
+import { ActionContext, API_ACTION_PREFIX, emit } from "../action.ts";
+import { BaseMiddleware, compose } from "../compose.ts";
 import {
   createScope,
   createSignal,
@@ -6,14 +8,13 @@ import {
   produceWithPatches,
   Scope,
 } from "../deps.ts";
-import { BaseMiddleware, compose } from "../compose.ts";
-import type { AnyAction, AnyState, Next } from "../types.ts";
-import type { FxStore, Listener, StoreUpdater, UpdaterCtx } from "./types.ts";
+import { generateUUID } from "../query/util.ts";
 import { StoreContext, StoreUpdateContext } from "./context.ts";
-import { ActionContext, emit } from "../action.ts";
-import { API_ACTION_PREFIX } from "../action.ts";
 import { createRun } from "./run.ts";
 
+import type { AnyAction, AnyState, Next } from "../types.ts";
+import type { Signal } from "../deps.ts";
+import type { FxStore, Listener, StoreUpdater, UpdaterCtx } from "./types.ts";
 const stubMsg = "This is merely a stub, not implemented";
 
 // https://github.com/reduxjs/redux/blob/4a6d2fb227ba119d3498a43fab8f53fe008be64c/src/createStore.ts#L344
@@ -34,6 +35,24 @@ export interface CreateStore<S extends AnyState> {
   middleware?: BaseMiddleware<UpdaterCtx<S>>[];
 }
 
+const signalStoreMap = new WeakMap<Signal<any, any>, string>();
+
+export function createSignalMap() {
+  return {
+    addSignal: (signal: Signal<any, any>, storeId: string) => {
+      signalStoreMap.set(signal, storeId);
+    },
+    getStoreId: (signal: Signal<any, any>): string | undefined => {
+      return signalStoreMap.get(signal);
+    },
+    hasSignal: (signal: Signal<any, any>): boolean => {
+      return signalStoreMap.has(signal);
+    },
+  };
+}
+
+export const signalMap = createSignalMap();
+
 export function createStore<S extends AnyState>({
   initialState,
   scope: initScope,
@@ -52,6 +71,7 @@ export function createStore<S extends AnyState>({
   enablePatches();
 
   const signal = createSignal<AnyAction, void>();
+  signalMap.addSignal(signal, generateUUID());
   scope.set(ActionContext, signal);
 
   function getScope() {
