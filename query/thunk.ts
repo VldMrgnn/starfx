@@ -1,10 +1,10 @@
-import { ActionContext, API_ACTION_PREFIX, takeEvery } from '../action.ts';
-import { compose } from '../compose.ts';
-import { Callable, ensure, Ok, Operation, Signal } from '../deps.ts';
-import { keepAlive, supervise } from '../fx/mod.ts';
-import { signalMap } from '../mod.ts';
-import { createKey } from './create-key.ts';
-import { generateShortUUID, isFn, isObject } from './util.ts';
+import { ActionContext, API_ACTION_PREFIX, takeEvery } from "../action.ts";
+import { compose } from "../compose.ts";
+import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
+import { keepAlive, supervise } from "../fx/mod.ts";
+import { signalMap } from "../mod.ts";
+import { createKey } from "./create-key.ts";
+import { generateShortUUID, isFn, isObject } from "./util.ts";
 
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import type {
@@ -207,18 +207,17 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
 
     // If signal is available, register immediately for all the stores registered, otherwise defer
     const allSignals = signalMap.getSignalsByThunk(thunkId);
-      for (const sig of allSignals) {
-        const thatStoreId = signalMap.getStoreId(sig);
-        if (thatStoreId) {
-          const acionName =
-            `${API_ACTION_PREFIX}REGISTER_THUNK_${thatStoreId}_${thunkId}`;
-          sig.send({
-            type: acionName,
-            payload: curVisor,
-          });
-        }
-     }
-    
+    for (const sig of allSignals) {
+      const thatStoreId = signalMap.getStoreId(sig);
+      if (thatStoreId) {
+        const acionName =
+          `${API_ACTION_PREFIX}REGISTER_THUNK_${thatStoreId}_${thunkId}`;
+        sig.send({
+          type: acionName,
+          payload: curVisor,
+        });
+      }
+    }
 
     const errMsg =
       `[${name}] is being called before its thunk has been registered. ` +
@@ -264,11 +263,11 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
       console.warn("Signal is not available");
       return;
     }
-    const isRegistered = signalMap.isThunkRegisteredOnSignal(signal, thunkId);
-    if (isRegistered) {
+    if (signalMap.isThunkRegisteredOnSignal(signal, thunkId)) {
       console.warn("This thunk instance is already registered.");
       return;
     }
+
     signalMap.registerThunkOnSignal(signal, thunkId);
 
     const storeId = signalMap.getStoreId(signal);
@@ -282,11 +281,6 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     // Register any thunks created after signal is available
     yield* keepAlive(Object.values(visors));
 
-    // Spawn a watcher for further thunk matchingPairs
-
-    if (!storeId) {
-      throw new Error("Store ID is not available  in signal");
-    }
     yield* takeEvery(
       storeThunkAction,
       watcher as any,
