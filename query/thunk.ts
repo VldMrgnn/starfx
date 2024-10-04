@@ -1,10 +1,10 @@
-import { ActionContext, API_ACTION_PREFIX, takeEvery } from "../action.ts";
-import { compose } from "../compose.ts";
-import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
-import { keepAlive, supervise } from "../fx/mod.ts";
-import { signalMap } from "../mod.ts";
-import { createKey } from "./create-key.ts";
-import { generateShortUUID, isFn, isObject } from "./util.ts";
+import { ActionContext, API_ACTION_PREFIX, takeEvery } from '../action.ts';
+import { compose } from '../compose.ts';
+import { Callable, ensure, Ok, Operation, Signal } from '../deps.ts';
+import { keepAlive, supervise } from '../fx/mod.ts';
+import { signalMap } from '../mod.ts';
+import { createKey } from './create-key.ts';
+import { generateShortUUID, isFn, isObject } from './util.ts';
 
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import type {
@@ -210,10 +210,8 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     for (const sig of allSignals) {
       const thatStoreId = signalMap.getStoreId(sig);
       if (thatStoreId) {
-        const acionName =
-          `${API_ACTION_PREFIX}REGISTER_THUNK_${thatStoreId}_${thunkId}`;
         sig.send({
-          type: acionName,
+          type:`${API_ACTION_PREFIX}REGISTER_THUNK_${thatStoreId}_${thunkId}`,
           payload: curVisor,
         });
       }
