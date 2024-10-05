@@ -1,5 +1,6 @@
 import { ActionContext, API_ACTION_PREFIX, emit } from "../action.ts";
 import { BaseMiddleware, compose } from "../compose.ts";
+import { createSignalMap } from "../controller/signal-map.ts";
 import {
   createScope,
   createSignal,
@@ -9,7 +10,6 @@ import {
   Scope,
 } from "../deps.ts";
 import { generateShortUUID } from "../query/util.ts";
-import { createSignalMap } from "../signal-map.ts";
 import { StoreContext, StoreUpdateContext } from "./context.ts";
 import { createRun } from "./run.ts";
 
