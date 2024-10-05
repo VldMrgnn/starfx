@@ -77,3 +77,28 @@ it(tests, "IdemWeakMapIterable - has operation", () => {
     "The map should not have the key after deletion",
   );
 });
+
+it(
+  tests,
+  "IdemWeakMapIterable - set method should handle multiple weak references for the same key",
+  () => {
+    const map = IdemWeakMapIterable<any, string>();
+    const key1 = Symbol("1");
+
+    map.set(key1, "A");
+    map.set(key1, "B");
+    map.set(key1, "C");
+
+    const values = map.values();
+    asserts.assertStrictEquals(
+      values.length,
+      1,
+      "There should be only one value for the same key",
+    );
+    asserts.assertStrictEquals(
+      values[0],
+      "C",
+      "The value should be 'C' after setting the same key again",
+    );
+  },
+);
