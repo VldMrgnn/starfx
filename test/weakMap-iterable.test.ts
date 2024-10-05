@@ -1,5 +1,5 @@
-import IdemWeakMapIterable from "../controller/weakMap-iterable.ts"; // Adjust the import path as needed
-import { asserts, describe, it } from "../test.ts";
+import IdemWeakMapIterable from '../controller/weakMap-iterable.ts'; // Adjust the import path as needed
+import { asserts, describe, it } from '../test.ts';
 
 const tests = describe("IdemWeakMapIterable");
 
@@ -99,6 +99,51 @@ it(
       values[0],
       "C",
       "The value should be 'C' after setting the same key again",
+    );
+  },
+);
+
+it(
+  tests,
+  "IdemWeakMapIterable - ensure everything is in sync after key dereference",
+  () => {
+    const map = IdemWeakMapIterable<object, string>();
+    const key = {};
+    const value = "value";
+
+    map.set(key, value);
+
+    asserts.assertStrictEquals(
+      map.get(key),
+      value,
+      "The value should be set and retrievable",
+    );
+
+    map.delete(key);
+
+    asserts.assertStrictEquals(
+      map.get(key),
+      undefined,
+      "The value should be undefined after deletion",
+    );
+
+    const keys = map.keys();
+    const values = map.values();
+    asserts.assertStrictEquals(
+      keys.length,
+      0,
+      "The keys array should be empty after deletion",
+    );
+    asserts.assertStrictEquals(
+      values.length,
+      0,
+      "The values array should be empty after deletion",
+    );
+
+    asserts.assertStrictEquals(
+      map.has(key),
+      false,
+      "The WeakMap should not have the key after deletion",
     );
   },
 );
