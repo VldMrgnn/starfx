@@ -43,6 +43,7 @@ export type FxSchema<S extends AnyState, O extends FxMap = FxMap> =
   & { update: FxStore<S>["update"] };
 
 export interface FxStore<S extends AnyState> {
+  getId:()=> number;
   getScope: () => Scope;
   getState: () => S;
   subscribe: (fn: Listener) => () => void;

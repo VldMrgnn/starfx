@@ -16,6 +16,8 @@ import { createRun } from "./run.ts";
 
 const stubMsg = "This is merely a stub, not implemented";
 
+let i = 0;
+
 // https://github.com/reduxjs/redux/blob/4a6d2fb227ba119d3498a43fab8f53fe008be64c/src/createStore.ts#L344
 function observable() {
   return {
@@ -34,6 +36,7 @@ export interface CreateStore<S extends AnyState> {
   middleware?: BaseMiddleware<UpdaterCtx<S>>[];
 }
 
+
 export function createStore<S extends AnyState>({
   initialState,
   scope: initScope,
@@ -47,13 +50,18 @@ export function createStore<S extends AnyState>({
     scope = tuple[0];
   }
 
+  let storeId = i++;
   let state = initialState;
   const listeners = new Set<Listener>();
   enablePatches();
 
   const signal = createSignal<AnyAction, void>();
+  /// 
   scope.set(ActionContext, signal);
 
+  function getId() {
+    return storeId;
+  }
   function getScope() {
     return scope;
   }
@@ -108,6 +116,7 @@ export function createStore<S extends AnyState>({
     yield* next();
   }
 
+
   function createUpdater() {
     const fn = compose<UpdaterCtx<S>>([
       updateMdw,
@@ -123,6 +132,7 @@ export function createStore<S extends AnyState>({
   const mdw = createUpdater();
   function* update(updater: StoreUpdater<S> | StoreUpdater<S>[]) {
     const ctx = {
+      storeId,
       updater,
       patches: [],
       result: Ok(undefined),
@@ -162,6 +172,7 @@ export function createStore<S extends AnyState>({
   }
 
   const store = {
+    getId,
     getScope,
     getState,
     subscribe,
