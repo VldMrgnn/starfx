@@ -6,6 +6,7 @@ import { createKey } from "./create-key.ts";
 import { isFn, isObject, generateShortUUID } from "./util.ts";
 import { StoreContext } from "../store/context.ts"
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
+import iWeakMap from './weak-iterable.ts';
 import type {
   CreateAction,
   CreateActionPayload,
@@ -135,7 +136,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   let hasRegistered = false;
 
   let registry:string[] = [];
-  let sigRegistry = new WeakMap<Signal, string>()
+  let sigRegistry = new iWeakMap<Signal<AnyAction, void>, string>()
  
 
   function* defaultMiddleware(_: Ctx, next: Next) {
@@ -210,15 +211,21 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     visors[name] = curVisor;
 
     // If signal is available, register immediately, otherwise defer
-    for (let action of registry  ) {
-      /// we need THAT SIGNAL //
+    // for (let action of registry  ) {
+    //   /// we need THAT SIGNAL //
 
-        signal?.send({
-          type: action,
-          payload: curVisor,
-        });
+    //     signal?.send({
+    //       type: action,
+    //       payload: curVisor,
+    //     });
+    // }
+
+    for (const sig of sigRegistry.keys){
+      sig.send({
+        type: sigRegistry[sig],
+        payload:curVisor
+      })
     }
-
     const errMsg =
       `[${name}] is being called before its thunk has been registered. ` +
       "Run `store.run(thunks.register)` where `thunks` is the name of your `createThunks` or `createApi` variable.";
@@ -270,20 +277,20 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
 
     const storeId=store.getId();
     const sigAction = `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`;
-    if(registry.find(x=>x===sigAaction)){
+    if(registry.find(x=>x===sigAction)){
       console.warn("This thunk instance is already registered.");
       return;
     }
-    sigRegistry.set(signal, sigAaction);
+    sigRegistry.set(signal, sigAction);
 
-    registry.push(sigAaction);
+    registry.push(sigAction);
 
     yield* ensure(function* () {
       
-      const idx = registry.findIndex(x=>x===sigAaction);
+      const idx = registry.findIndex(x=>x===sigAction);
       
       if (idx > -1) {
-        const newReg = registry.filter(x=>x !== sigAaction);
+        const newReg = registry.filter(x=>x !== sigAction);
         registry = newReg;
       }
      // no need 
