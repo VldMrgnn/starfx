@@ -3,7 +3,7 @@ import { compose } from "../compose.ts";
 import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
 import { keepAlive, supervise } from "../fx/mod.ts";
 import { createKey } from "./create-key.ts";
-import { isFn, isObject } from "./util.ts";
+import { isFn, isObject, generateShortUUID } from "./util.ts";
 import { StoreContext } from "../store/context.ts"
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import type {
@@ -131,12 +131,11 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   const actionMap: {
     [key: string]: CreateActionWithPayload<Ctx, any>;
   } = {};
-  const thunkId = `${Date.now().toString(36)}-${
-    Math.random().toString(36).substring(2, 11)
-  }`;
+  const thunkId = generateShortUUID();
   let hasRegistered = false;
 
-  const registry:string[] = [];
+  let registry:string[] = [];
+  let sigRegistry = new WeakMap<Signal, string>()
  
 
   function* defaultMiddleware(_: Ctx, next: Next) {
@@ -211,13 +210,13 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     visors[name] = curVisor;
 
     // If signal is available, register immediately, otherwise defer
-    if (signal) {
-      for (let storeId = 0; storeId < 100; storeId++  ) {
-        signal.send({
-          type: `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
+    for (let action of registry  ) {
+      /// we need THAT SIGNAL //
+
+        signal?.send({
+          type: action,
           payload: curVisor,
         });
-      }
     }
 
     const errMsg =
@@ -265,33 +264,36 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     
     // hasRegistered = true;
     signal = yield* ActionContext;
+    
 
     const store = yield* StoreContext;
 
     const storeId=store.getId();
-
-    if(registry.find(x=>x===`${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`)){
+    const sigAction = `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`;
+    if(registry.find(x=>x===sigAaction)){
       console.warn("This thunk instance is already registered.");
       return;
     }
-    
-    console.log('storeId', storeId);
-    console.log(`${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`);
-    
-    registry.push(`${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`);
+    sigRegistry.set(signal, sigAaction);
+
+    registry.push(sigAaction);
 
     yield* ensure(function* () {
-      const idx = registry.findIndex(x=>x===`${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`);
-    console.log('A',registry);
+      
+      const idx = registry.findIndex(x=>x===sigAaction);
+      
       if (idx > -1) {
-        registry.splice(idx,1,`${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`);
-        console.log('B',registry);
+        const newReg = registry.filter(x=>x !== sigAaction);
+        registry = newReg;
       }
+     // no need 
+     signal && sigRegistry.delete(signal)
     });
 
     // Register any thunks created after signal is available
     yield* keepAlive(Object.values(visors));
 
+    console.log('REGISTERING', `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`);
     // Spawn a watcher for further thunk matchingPairs 
      yield* takeEvery(
         `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
