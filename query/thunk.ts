@@ -6,7 +6,7 @@ import { createKey } from "./create-key.ts";
 import { isFn, isObject, generateShortUUID } from "./util.ts";
 import { StoreContext } from "../store/context.ts"
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
-import iWeakMap from './weak-iterable.ts';
+import IdemWeakMapIterable from './weak-iterable.ts';
 import type {
   CreateAction,
   CreateActionPayload,
@@ -136,8 +136,10 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   let hasRegistered = false;
 
   let registry:string[] = [];
-  let sigRegistry = new iWeakMap<Signal<AnyAction, void>, string>()
- 
+  const sigRegistry = IdemWeakMapIterable<
+    Signal<AnyAction, void>,
+    SignalInfo
+  >();
 
   function* defaultMiddleware(_: Ctx, next: Next) {
     yield* next();
@@ -220,9 +222,9 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     //     });
     // }
 
-    for (const sig of sigRegistry.keys){
+    for (const sig of sigRegistry.keys()){
       sig.send({
-        type: sigRegistry[sig],
+        type: sigRegistry.get(sig),
         payload:curVisor
       })
     }
