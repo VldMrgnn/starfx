@@ -3,10 +3,10 @@ import { compose } from "../compose.ts";
 import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
 import { keepAlive, supervise } from "../fx/mod.ts";
 import { createKey } from "./create-key.ts";
-import { isFn, isObject, generateShortUUID } from "./util.ts";
-import { StoreContext } from "../store/context.ts"
+import { generateShortUUID, isFn, isObject } from "./util.ts";
+import { StoreContext } from "../store/context.ts";
 import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
-import IdemWeakMapIterable from './weak-iterable.ts';
+import IdemWeakMapIterable from "./weak-iterable.ts";
 import type {
   CreateAction,
   CreateActionPayload,
@@ -211,12 +211,12 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
     visors[name] = curVisor;
 
     // If signal is available, register immediately, for available stores, otherwise defer
-    for (const sig of sigRegistry.keys()){
-      const aType = sigRegistry.get(sig)||"";
+    for (const sig of sigRegistry.keys()) {
+      const aType = sigRegistry.get(sig) || "";
       sig.send({
         type: aType,
-        payload:curVisor
-      })
+        payload: curVisor,
+      });
     }
     const errMsg =
       `[${name}] is being called before its thunk has been registered. ` +
@@ -256,32 +256,31 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   }
 
   function* register() {
-  
-    signal = yield* ActionContext;    
+    signal = yield* ActionContext;
     const store = yield* StoreContext;
-    const storeId=store.getId();
+    const storeId = store.getId();
 
-    const sigAction = `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`;
-    
-    
-    if(sigRegistry.values().find(x=>x===sigAction)){
+    const sigAction =
+      `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`;
+
+    if (sigRegistry.values().find((x) => x === sigAction)) {
       console.warn("This thunk instance is already registered.");
       return;
     }
     sigRegistry.set(signal, sigAction);
 
     yield* ensure(function* () {
-     signal && sigRegistry.delete(signal)
+      signal && sigRegistry.delete(signal);
     });
 
     // Register any thunks created after signal is available
     yield* keepAlive(Object.values(visors));
 
-    // Spawn a watcher for further thunk matchingPairs 
-     yield* takeEvery(
-        `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
-        watcher as any,
-      );
+    // Spawn a watcher for further thunk matchingPairs
+    yield* takeEvery(
+      `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
+      watcher as any,
+    );
   }
 
   function routes() {

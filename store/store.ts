@@ -36,7 +36,6 @@ export interface CreateStore<S extends AnyState> {
   middleware?: BaseMiddleware<UpdaterCtx<S>>[];
 }
 
-
 export function createStore<S extends AnyState>({
   initialState,
   scope: initScope,
@@ -56,7 +55,7 @@ export function createStore<S extends AnyState>({
   enablePatches();
 
   const signal = createSignal<AnyAction, void>();
-  /// 
+  ///
   scope.set(ActionContext, signal);
 
   function getId() {
@@ -115,7 +114,6 @@ export function createStore<S extends AnyState>({
     listeners.forEach((f) => f());
     yield* next();
   }
-
 
   function createUpdater() {
     const fn = compose<UpdaterCtx<S>>([
