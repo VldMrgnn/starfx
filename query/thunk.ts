@@ -2,11 +2,12 @@ import { ActionContext, API_ACTION_PREFIX, takeEvery } from "../action.ts";
 import { compose } from "../compose.ts";
 import { Callable, ensure, Ok, Operation, Signal } from "../deps.ts";
 import { keepAlive, supervise } from "../fx/mod.ts";
+import { StoreContext } from "../store/context.ts";
 import { createKey } from "./create-key.ts";
 import { generateShortUUID, isFn, isObject } from "./util.ts";
-import { StoreContext } from "../store/context.ts";
-import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import IdemWeakMapIterable from "./weak-iterable.ts";
+
+import type { ActionWithPayload, AnyAction, Next, Payload } from "../types.ts";
 import type {
   CreateAction,
   CreateActionPayload,
@@ -278,7 +279,7 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
 
     // Spawn a watcher for further thunk matchingPairs
     yield* takeEvery(
-      `${API_ACTION_PREFIX}REGISTER_THUNK_${storeId}_${thunkId}`,
+      sigAction,
       watcher as any,
     );
   }
