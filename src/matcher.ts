@@ -6,7 +6,7 @@ type Predicate<Guard extends AnyAction = AnyAction> = (
   action: Guard,
 ) => boolean;
 type StringableActionCreator<A extends AnyAction = AnyAction> = {
-  (...args: unknown[]): A;
+  (...args: any[]): A;
   toString(): string;
 };
 type SubPattern<Guard extends AnyAction = AnyAction> =
@@ -27,9 +27,21 @@ function isThunk(fn: any): boolean {
   return (
     typeof fn === "function" &&
     typeof fn.run === "function" &&
+    typeof fn.use === "function"
+      &&
     typeof fn.name === "string" &&
     typeof fn.key === "string" &&
     typeof fn.toString === "function"
+  );
+}
+
+function isActionCreator(fn: any): boolean {
+  return (
+    typeof fn === "function" &&
+    typeof fn.toString === "function" &&
+    typeof fn.run !== "function" &&
+    typeof fn.key !== "string" &&
+    fn.toString() !== fn.name // toString returns action type, not function name
   );
 }
 export function matcher(pattern: ActionPattern): Predicate {
@@ -45,13 +57,20 @@ export function matcher(pattern: ActionPattern): Predicate {
     return (input) => pattern.some((p) => matcher(p)(input));
   }
 
+  // *** Always match raw predicate functions first ***
+  if (typeof pattern === "function" &&
+      !isThunk(pattern) && !isActionCreator(pattern)) {
+    return (input) => pattern(input) as boolean;
+  }
+
   // detects thunk action creators
   if (isThunk(pattern)) {
     return (input) => pattern.toString() === input.type;
   }
 
-  if (typeof pattern === "function") {
-    return (input) => pattern(input) as boolean;
+  // detects starfx createAction action creators
+  if (isActionCreator(pattern)) {
+    return (input) => pattern.toString() === input.type;
   }
 
   throw new Error("invalid pattern");

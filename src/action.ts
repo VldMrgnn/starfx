@@ -64,7 +64,6 @@ export function* take(pattern: ActionPattern): Operation<Action> {
   for (const action of yield* each(fd)) {
     return action;
   }
-
   return { type: "take failed, this should not be possible" };
 }
 

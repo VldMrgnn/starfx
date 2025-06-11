@@ -56,7 +56,7 @@ test("take from default channel", async () => {
   const actual: AnyAction[] = [];
   function* genFn() {
     yield* spawn(channelFn);
-
+    
     try {
       actual.push(yield* take("*")); // take all actions
       actual.push(yield* take("action-1")); // take only actions of type 'action-1'

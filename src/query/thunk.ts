@@ -258,8 +258,8 @@ export function createThunks<Ctx extends ThunkCtx = ThunkCtx<any>>(
   }
 
   function* register() {
-    storeId = yield* IdContext.expect();
-    if (storeId && storeMap.has(storeId)) {
+    storeId = yield* IdContext.expect().expect();
+     if (storeId && storeMap.has(storeId)) {
       console.warn("This thunk instance is already registered.");
       return;
     }
