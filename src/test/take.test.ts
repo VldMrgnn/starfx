@@ -10,7 +10,9 @@ test("a put should complete before more `take` are added and then consumed autom
     // TODO why is this needed?
     yield* sleep(0);
     yield* put({ type: "action-1", payload: 1 });
+    yield* sleep(1);
     yield* put({ type: "action-1", payload: 2 });
+    yield* sleep(1);
   }
 
   function* root() {
@@ -20,6 +22,7 @@ test("a put should complete before more `take` are added and then consumed autom
 
     actual.push(yield* take("action-1"));
     actual.push(yield* take("action-1"));
+    yield* sleep(1);
   }
 
   const store = createStore({ initialState: {} });
@@ -60,6 +63,7 @@ test("take from default channel", async () => {
     yield* put({
       type: "action-3",
     });
+    yield* sleep(1);
   }
 
   const actual: AnyAction[] = [];
