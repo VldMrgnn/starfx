@@ -10,12 +10,26 @@ import {
 import { createStore, updateStore } from "../store/index.js";
 import { expect, test } from "../test.js";
 
-import type { Next, ThunkCtx } from "../index.js";
-// deno-lint-ignore no-explicit-any
+import type {
+  CreateAction,
+  CreateActionWithPayload,
+  Next,
+  ThunkCtx,
+} from "../index.js";
+import type { IfAny } from "../query/types.js";
+
 interface RoboCtx<D = Record<string, unknown>, P = any> extends ThunkCtx<P> {
   url: string;
   request: { method: string; body?: Record<string, unknown> };
   response: D;
+  name: string;
+  key: string;
+  action: any;
+  actionFn: IfAny<
+    P,
+    CreateAction<ThunkCtx<any>, any>,
+    CreateActionWithPayload<ThunkCtx<P>, P, any>
+  >;
 }
 
 interface User {
@@ -135,7 +149,7 @@ test("when create a query fetch pipeline - execute all middleware and save to re
   const store = createStore<TestState>({
     initialState: { users: {}, tickets: {} },
   });
-  store.run(api.bootup);
+  store.run(api.register);
 
   store.dispatch(fetchUsers());
 
@@ -173,7 +187,7 @@ test("when providing a generator the to api.create function - should call that g
   const store = createStore<TestState>({
     initialState: { users: {}, tickets: {} },
   });
-  store.run(api.bootup);
+  store.run(api.register);
 
   store.dispatch(fetchTickets());
   expect(store.getState()).toEqual({
@@ -201,7 +215,7 @@ test("error handling", () => {
   const action = api.create("/error", { supervisor: takeEvery });
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action());
   expect(called).toBe(true);
 });
@@ -227,7 +241,7 @@ test("error handling inside create", () => {
     },
   );
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action());
   expect(called).toBe(true);
 });
@@ -259,7 +273,7 @@ test("error inside endpoint mdw", () => {
       users: {},
     },
   });
-  store.run(query.bootup);
+  store.run(query.register);
   store.dispatch(fetchUsers());
   expect(called).toBe(true);
 });
@@ -291,7 +305,7 @@ test("create fn is an array", () => {
   ]);
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action());
 });
 
@@ -323,7 +337,7 @@ test("run() on endpoint action - should run the effect", () => {
   );
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action2());
   expect(acc).toBe("ab");
   expect(curCtx.action).toMatchObject({
@@ -364,7 +378,7 @@ test("run() on endpoint action with payload - should run the effect", () => {
   );
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action2());
   expect(acc).toBe("ab");
   expect(curCtx.action).toMatchObject({
@@ -411,10 +425,15 @@ test("middleware order of execution", async () => {
   );
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action());
 
-  await store.run(waitFor(() => acc === "abcdefg"));
+  await store.run(api.register);
+  await store.run(function* () {
+    return yield* waitFor(function* () {
+      return acc === "abcdefg";
+    });
+  });
   expect(acc).toBe("abcdefg");
 });
 
@@ -441,10 +460,15 @@ test("retry with actionFn", async () => {
   });
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action());
 
-  await store.run(waitFor(() => acc === "agag"));
+  await store.run(api.register);
+  await store.run(function* () {
+    return yield* waitFor(function* () {
+      return acc === "agag";
+    });
+  });
   expect(acc).toBe("agag");
 });
 
@@ -472,10 +496,15 @@ test("retry with actionFn with payload", async () => {
   );
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action({ page: 1 }));
 
-  await store.run(waitFor(() => acc === "agag"));
+  await store.run(api.register);
+  await store.run(function* () {
+    return yield* waitFor(function* () {
+      return acc === "agag";
+    });
+  });
   expect(acc).toBe("agag");
 });
 
@@ -503,7 +532,7 @@ test("should only call thunk once", () => {
   );
 
   const store = createStore({ initialState: {} });
-  store.run(api.bootup);
+  store.run(api.register);
   store.dispatch(action2());
   expect(acc).toBe("a");
 });
