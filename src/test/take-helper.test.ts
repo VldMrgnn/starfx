@@ -199,3 +199,22 @@ test("plain take can miss actions between iterations", async function () {
   // at least one missed. 
   expect(seen.length).toBeLessThan(3);
 });
+
+test("takeEvery spawns and doesn't miss bursts", function* () {
+  expect.assertions(1);
+  const seen: number[] = [];
+  function* root() {
+    yield* takeEvery("PING", function* (a: any) {
+      seen.push(a.id);
+      yield* sleep(2); // simulate work
+    });
+  }
+  const store = createStore({ initialState: {} });
+  store.run(root);
+  store.dispatch({ type: "PING", id: 1 });
+  store.dispatch({ type: "PING", id: 2 });
+  store.dispatch({ type: "PING", id: 3 });
+  yield* sleep(10);
+  expect(seen).toEqual([1, 2, 3]);
+
+});
