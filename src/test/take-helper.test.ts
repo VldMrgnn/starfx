@@ -3,6 +3,8 @@ import type { AnyAction } from "../index.js";
 import { sleep, take, takeEvery, takeLatest, takeLeading } from "../index.js";
 import { createStore } from "../store/index.js";
 import { expect, test } from "../test.js";
+import { parallel } from "../fx/index.js";
+import { put } from "../action.js";
 
 test("should cancel previous tasks and only use latest", async () => {
   const actual: string[] = [];
@@ -108,4 +110,92 @@ test("should receive all actions", async () => {
     ["a1", "a2", 4],
     ["a1", "a2", 5],
   ]);
+});
+
+test("take and takeEvery in the same root with the same action type", async () => {
+  expect.assertions(1);
+  const actual: string[] = [];
+
+  function* root() {
+    const group = yield* parallel([
+      function* () {
+        yield* takeEvery("ACTION", function* (ap) {
+          actual.push("takeEvery:" + ap.payload);
+        });
+      },
+      function* () {
+        while (true) {
+          const action = yield* take("*");
+          if (action.type === "ACTION") {
+            actual.push("take:" + action.payload);
+          }
+        }
+      },
+    ]);
+    yield* group;
+  }
+
+  const store = createStore({ initialState: {} });
+  store.run(root);
+  store.dispatch({ type: "ACTION", payload: "1" });
+  expect([...actual].sort()).toEqual(["takeEvery:1", "take:1"].sort());
+});
+
+
+test.skip("take and takeEvery in the same and puts", async () => {
+  expect.assertions(1);
+  const actual: string[] = [];
+  const other: string[] = [];
+
+  function* root() {
+    const group = yield* parallel([
+      function* () {
+        yield* takeEvery("ACTION", function* (ap) {
+          actual.push("takeEvery:" + ap.payload);
+          // with this timeout the output changes completely.
+          // yield* sleep(0);
+          yield* put({ type: "OTHER", payload: "ANY" });
+        });
+      },
+      function* () {
+        while (true) {
+          const action = yield* take("*");
+          if (action.type === "ACTION") {
+            actual.push("take:" + action.payload);
+          }
+          if (action.type === "OTHER") {
+            other.push("other:" + action.payload);
+          }
+        }
+      }
+    ]);
+    yield* group;
+  }
+
+  const store = createStore({ initialState: {} });
+  store.run(root);
+  store.dispatch({ type: "ACTION", payload: "1" });
+
+  expect([...actual].sort()).toEqual(["takeEvery:1", "take:1"].sort());
+  expect([...other].sort()).toEqual(["other:ANY"]);
+});
+
+
+test("plain take can miss actions between iterations", async function () {
+  expect.assertions(1);
+  const seen: number[] = [];
+  function* root() {
+      while (true) {
+        const a: any = yield* take((x: any) => x.type === "PING");
+        seen.push(a.id);
+        yield* sleep(2); // simulate work
+      }
+  }
+  const store = createStore({ initialState: {} });
+  store.run(root);
+  store.dispatch({ type: "PING", id: 1 });
+  store.dispatch({ type: "PING", id: 2 });
+  store.dispatch({ type: "PING", id: 3 });
+  // at least one missed. 
+  expect(seen.length).toBeLessThan(3);
 });
